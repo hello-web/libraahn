@@ -27,6 +27,7 @@ namespace Raahn
         private List<ConnectionGroup> dendriteGroups;
         //List of outgoing connections instantiated by this group.
         private List<ConnectionGroup> axonGroups;
+        private NeuralNetwork ann;
 
         public NeuronGroup(NeuralNetwork network, Type t)
         {
@@ -42,6 +43,8 @@ namespace Raahn
 
         public void Construct(NeuralNetwork network, Type t)
         {
+            ann = network;
+
             computed = true;
 
             neurons = new List<double>();
@@ -73,7 +76,7 @@ namespace Raahn
 
             //Finish computing the signal by applying the activation function.
             for (int i = 0; i < neurons.Count; i++)
-                neurons[i] = NeuralNetwork.activation(neurons[i]);
+                neurons[i] = ann.activation(neurons[i]);
 
             computed = true;
         }

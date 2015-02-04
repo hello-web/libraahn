@@ -25,12 +25,12 @@ namespace Raahn
 
     public class ConnectionGroup
     {
-        public delegate void TrainFunctionType(int modIndex,NeuralNetwork neuralNetwork,NeuronGroup inGroup,
-                                                NeuronGroup outGroup,List<Connection> connections);
+        public delegate void TrainFunctionType(int modIndex, NeuralNetwork ann, NeuronGroup inGroup,
+                                                NeuronGroup outGroup, List<Connection> connections);
 
         private int modSigIndex;
         private List<Connection> connections;
-        private NeuralNetwork neuralNetwork;
+        private NeuralNetwork ann;
         private NeuronGroup inputGroup;
         private NeuronGroup outputGroup;
         private TrainFunctionType trainingMethod;
@@ -41,7 +41,7 @@ namespace Raahn
 
             modSigIndex = ModulationSignal.INVALID_INDEX;
 
-            neuralNetwork = network;
+            ann = network;
 
             inputGroup = inGroup;
             outputGroup = outGroup;
@@ -49,10 +49,10 @@ namespace Raahn
             trainingMethod = AutoencoderTrain;
         }
 
-        public static void AutoencoderTrain(int modIndex, NeuralNetwork neuralNetwork, NeuronGroup inGroup, 
+        public static void AutoencoderTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
                                             NeuronGroup outGroup, List<Connection> connections)
         {
-            double learningRate = neuralNetwork.GetLearningRate();
+            double learningRate = ann.GetLearningRate();
 
             double[] reconstructions = new double[inGroup.neurons.Count];
             double[] errors = new double[reconstructions.Length];
@@ -66,7 +66,7 @@ namespace Raahn
             //Also calculate the error of the reconstruction.
             for (int i = 0; i < reconstructions.Length; i++)
             {
-                reconstructions[i] = NeuralNetwork.activation(reconstructions[i]);
+                reconstructions[i] = ann.activation(reconstructions[i]);
                 errors[i] = inGroup.neurons[i] - reconstructions[i];
             }
 
@@ -74,14 +74,14 @@ namespace Raahn
             //Hard code derivative to the derivative of the Logistic function for now.
             for (int i = 0; i < connections.Count; i++)
                 connections[i].weight += learningRate * errors[(int)connections[i].input]
-                * NeuralNetwork.activationDerivative(outGroup.neurons[(int)connections[i].output])
+                * ann.activationDerivative(outGroup.neurons[(int)connections[i].output])
                 * outGroup.neurons[(int)connections[i].output];
         }
 
-        public static void HebbianTrain(int modIndex, NeuralNetwork neuralNetwork, NeuronGroup inGroup, 
+        public static void HebbianTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
                                         NeuronGroup outGroup, List<Connection> connections)
         {
-            double learningRate = neuralNetwork.GetLearningRate();
+            double learningRate = ann.GetLearningRate();
             double modSig = ModulationSignal.GetSignal(modIndex);
 
             for (int i = 0; i < connections.Count; i++)
@@ -114,7 +114,7 @@ namespace Raahn
 
         public void Train()
         {
-            trainingMethod(modSigIndex, neuralNetwork, inputGroup, outputGroup, connections);
+            trainingMethod(modSigIndex, ann, inputGroup, outputGroup, connections);
         }
 
         public void SetModulationIndex(int index)

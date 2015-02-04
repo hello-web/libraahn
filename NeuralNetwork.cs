@@ -8,9 +8,8 @@ namespace Raahn
         public delegate double ActivationFunctionType(double x);
 
         //Default to using the logistic function.
-        public static ActivationFunctionType activation = Activation.Logistic;
-        public static ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
-
+        public ActivationFunctionType activation = Activation.Logistic;
+        public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
         private double learningRate;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
