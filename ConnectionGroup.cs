@@ -26,16 +26,17 @@ namespace Raahn
     public class ConnectionGroup
     {
         public delegate void TrainFunctionType(int modIndex, NeuralNetwork ann, NeuronGroup inGroup,
-                                                NeuronGroup outGroup, List<Connection> connections);
+                                               NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights);
 
         private int modSigIndex;
+        private List<double> biasWeights;
         private List<Connection> connections;
         private NeuralNetwork ann;
         private NeuronGroup inputGroup;
         private NeuronGroup outputGroup;
         private TrainFunctionType trainingMethod;
 
-        public ConnectionGroup(NeuralNetwork network, NeuronGroup inGroup, NeuronGroup outGroup)
+        public ConnectionGroup(NeuralNetwork network, NeuronGroup inGroup, NeuronGroup outGroup, bool useBias)
         {
             connections = new List<Connection>();
 
@@ -45,49 +46,17 @@ namespace Raahn
 
             inputGroup = inGroup;
             outputGroup = outGroup;
+
             //Default to autoencoder training.
-            trainingMethod = AutoencoderTrain;
-        }
-
-        public static void AutoencoderTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
-                                            NeuronGroup outGroup, List<Connection> connections)
-        {
-            double learningRate = ann.GetLearningRate();
-
-            double[] reconstructions = new double[inGroup.neurons.Count];
-            double[] errors = new double[reconstructions.Length];
-
-            //First sum the weighted values into the reconstructions to store them.
-            for (int i = 0; i < connections.Count; i++)
-                reconstructions[(int)connections[i].input] += outGroup.neurons[(int)connections[i].output]
-                * connections[i].weight;
-
-            //Apply the activation function after the weighted values are summed.
-            //Also calculate the error of the reconstruction.
-            for (int i = 0; i < reconstructions.Length; i++)
+            if (useBias)
             {
-                reconstructions[i] = ann.activation(reconstructions[i]);
-                errors[i] = inGroup.neurons[i] - reconstructions[i];
+                biasWeights = new List<double>();
+                trainingMethod = TrainingMethod.BiasAutoencoderTrain;
             }
-
-            //Update the weights with stochastic gradient descent.
-            //Hard code derivative to the derivative of the Logistic function for now.
-            for (int i = 0; i < connections.Count; i++)
-                connections[i].weight += learningRate * errors[(int)connections[i].input]
-                * ann.activationDerivative(outGroup.neurons[(int)connections[i].output])
-                * outGroup.neurons[(int)connections[i].output];
-        }
-
-        public static void HebbianTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
-                                        NeuronGroup outGroup, List<Connection> connections)
-        {
-            double learningRate = ann.GetLearningRate();
-            double modSig = ModulationSignal.GetSignal(modIndex);
-
-            for (int i = 0; i < connections.Count; i++)
+            else
             {
-                connections[i].weight += modSig * learningRate * inGroup.neurons[(int)connections[i].input]
-                * outGroup.neurons[(int)connections[i].output];
+                biasWeights = null;
+                trainingMethod = TrainingMethod.AutoencoderTrain;
             }
         }
 
@@ -114,7 +83,7 @@ namespace Raahn
 
         public void Train()
         {
-            trainingMethod(modSigIndex, ann, inputGroup, outputGroup, connections);
+            trainingMethod(modSigIndex, ann, inputGroup, outputGroup, connections, biasWeights);
         }
 
         public void SetModulationIndex(int index)
@@ -124,6 +93,12 @@ namespace Raahn
 
         public void SetTrainingMethod(TrainFunctionType method)
         {
+            if (biasWeights == null)
+            {
+                if (method == TrainingMethod.BiasAutoencoderTrain || method == TrainingMethod.BiasHebbianTrain)
+                    return;
+            }
+
             trainingMethod = method;
         }
 

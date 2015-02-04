@@ -88,8 +88,8 @@ namespace Raahn
             hiddenGroup.index = ann.AddNeuronGroup(hiddenCount, hiddenGroup.type);
             outputGroup.index = ann.AddNeuronGroup(outputCount, outputGroup.type);
 
-            ann.ConnectGroups(iToHSig, inputGroup, hiddenGroup, ConnectionGroup.HebbianTrain);
-            ann.ConnectGroups(hToOSig, hiddenGroup, outputGroup, ConnectionGroup.HebbianTrain);
+            ann.ConnectGroups(inputGroup, hiddenGroup, TrainingMethod.HebbianTrain, iToHSig, true);
+            ann.ConnectGroups(hiddenGroup, outputGroup, TrainingMethod.HebbianTrain, hToOSig, true);
 
             for (int i = 0; i < epochs; i++)
             {

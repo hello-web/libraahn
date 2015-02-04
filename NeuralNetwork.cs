@@ -53,17 +53,6 @@ namespace Raahn
                 outputGroups[y].Train();
         }
 
-        //Makes sure a type is INPUT, HIDDEN, or OUTPUT.
-        private bool VerifyType(NeuronGroup.Type type)
-        {
-            int typei = (int)type;
-
-            if (typei < (int)NeuronGroup.Type.INPUT || typei > (int)NeuronGroup.Type.OUTPUT)
-                return false;
-            else
-                return true;
-        }
-
         //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
         //If too many inputs are provided, the excess is discarded.
         public bool SetInputs(uint groupIndex, double[] data)
@@ -83,16 +72,10 @@ namespace Raahn
 
         //Returns false if one or both of the groups do not exist.
         //Returns true if the groups could be connected.
-        public bool ConnectGroups(uint modulationIndex, NeuronGroup.Identifier input, NeuronGroup.Identifier output, 
-                                  ConnectionGroup.TrainFunctionType trainMethod)
+        public bool ConnectGroups(NeuronGroup.Identifier input, NeuronGroup.Identifier output, 
+                                  ConnectionGroup.TrainFunctionType trainMethod, uint modulationIndex, bool useBias)
         {
-            if (!VerifyType(input.type) || !VerifyType(output.type))
-                return false;
-
-            if (input.index < 0 || input.index >= allListGroups[(int)input.type].Count)
-                return false;
-
-            if (output.index < 0 || output.index >= allListGroups[(int)output.type].Count)
+            if (!VerifyIdentifier(input) || !VerifyIdentifier(output))
                 return false;
 
             NeuronGroup iGroup = allListGroups[(int)input.type][(int)input.index];
@@ -100,7 +83,7 @@ namespace Raahn
 
             Random rand = new Random();
 
-            ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup);
+            ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup, useBias);
             cGroup.SetTrainingMethod(trainMethod);
             cGroup.SetModulationIndex((int)modulationIndex);
 
@@ -153,14 +136,11 @@ namespace Raahn
         //Returns double.Nan if the neuron or neuron group does not exist.
         public double GetNeuronValue(NeuronGroup.Identifier ident, uint neuronIndex)
         {
-            if (!VerifyType(ident.type))
+            if (!VerifyIdentifier(ident))
                 return double.NaN;
 
             int typei = (int)ident.type;
             int indexi = (int)ident.index;
-
-            if (ident.index >= allListGroups[typei].Count)
-                return double.NaN;
 
             if (neuronIndex >= allListGroups[typei][indexi].neurons.Count)
                 return double.NaN;
@@ -171,6 +151,29 @@ namespace Raahn
         public double GetLearningRate()
         {
             return learningRate;
+        }
+
+        //Makes sure a type is INPUT, HIDDEN, or OUTPUT.
+        private bool VerifyType(NeuronGroup.Type type)
+        {
+            int typei = (int)type;
+
+            if (typei < (int)NeuronGroup.Type.INPUT || typei > (int)NeuronGroup.Type.OUTPUT)
+                return false;
+            else
+                return true;
+        }
+
+        //Makes sure an identifier specifies a neuron group within allListGroups.
+        private bool VerifyIdentifier(NeuronGroup.Identifier ident)
+        {
+            if (!VerifyType(ident.type))
+                return false;
+
+            if (ident.index < 0 || ident.index >= allListGroups[(int)ident.type].Count)
+                return false;
+
+            return true;
         }
 	}
 }
