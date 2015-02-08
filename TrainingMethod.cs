@@ -12,10 +12,16 @@ namespace Raahn
         {
             double learningRate = ann.GetLearningRate();
 
-            //Plus one for the bias neuron.
-            double[] reconstructions = new double[inGroup.neurons.Count + 1];
-            double[] errors = new double[reconstructions.Length + 1];
+            int reconstructionCount = inGroup.neurons.Count;
 
+            if (biasWeights != null)
+                reconstructionCount++;
+
+            //Plus one for the bias neuron.
+            double[] reconstructions = new double[reconstructionCount];
+            double[] errors = new double[reconstructionCount];
+
+            //If there is a bias neurons, it's reconstruction and error will be the last value in each.
             int biasRecIndex = reconstructions.Length - 1;
 
             //First sum the weighted values into the reconstructions to store them.
@@ -23,8 +29,11 @@ namespace Raahn
                 reconstructions[(int)connections[i].input] += outGroup.neurons[(int)connections[i].output]
                 * connections[i].weight;
 
-            for (int i = 0; i < biasWeights.Count; i++)
-                reconstructions[biasRecIndex] += biasWeights[i];
+            if (biasWeights != null)
+            {
+                for (int i = 0; i < biasWeights.Count; i++)
+                    reconstructions[biasRecIndex] += biasWeights[i];
+            }
 
             //Apply the activation function after the weighted values are summed.
             //Also calculate the error of the reconstruction.
@@ -34,8 +43,11 @@ namespace Raahn
                 errors[i] = inGroup.neurons[i] - reconstructions[i];
             }
 
-            reconstructions[biasRecIndex] = ann.activation(reconstructions[biasRecIndex]);
-            errors[biasRecIndex] = BIAS_INPUT - reconstructions[biasRecIndex];
+            if (biasWeights != null)
+            {
+                reconstructions[biasRecIndex] = ann.activation(reconstructions[biasRecIndex]);
+                errors[biasRecIndex] = BIAS_INPUT - reconstructions[biasRecIndex];
+            }
 
             //Update the weights with stochastic gradient descent.
             for (int i = 0; i < connections.Count; i++)

@@ -50,7 +50,7 @@ namespace Raahn
             uint inputCount = 2;
             uint hiddenCount = 3;
             uint outputCount = 1;
-            int epochs = 1000;
+            int epochs = 10000;
             bool useBias = true;
 
             double learningRate = 1.0;
