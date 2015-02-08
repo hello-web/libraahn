@@ -51,6 +51,7 @@ namespace Raahn
             uint hiddenCount = 3;
             uint outputCount = 1;
             int epochs = 1000;
+            bool useBias = true;
 
             double learningRate = 1.0;
 
@@ -88,8 +89,8 @@ namespace Raahn
             hiddenGroup.index = ann.AddNeuronGroup(hiddenCount, hiddenGroup.type);
             outputGroup.index = ann.AddNeuronGroup(outputCount, outputGroup.type);
 
-            ann.ConnectGroups(inputGroup, hiddenGroup, TrainingMethod.HebbianTrain, iToHSig, true);
-            ann.ConnectGroups(hiddenGroup, outputGroup, TrainingMethod.HebbianTrain, hToOSig, true);
+            ann.ConnectGroups(inputGroup, hiddenGroup, TrainingMethod.BiasHebbianTrain, iToHSig, useBias);
+            ann.ConnectGroups(hiddenGroup, outputGroup, TrainingMethod.BiasHebbianTrain, hToOSig, useBias);
 
             for (int i = 0; i < epochs; i++)
             {

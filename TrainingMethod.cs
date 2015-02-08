@@ -100,9 +100,9 @@ namespace Raahn
                 connections[i].weight += modSig * learningRate * inGroup.neurons[(int)connections[i].input]
                 * outGroup.neurons[(int)connections[i].output];
 
-            //The lenght of biasWeights should always be equal to the length of outGroup.neurons.
+            //The length of biasWeights should always be equal to the length of outGroup.neurons.
             for (int i = 0; i < biasWeights.Count; i++)
-                biasWeights[i] += modSig * learningRate * BIAS_INPUT * outGroup.neurons[i];
+                biasWeights[i] += modSig * learningRate * outGroup.neurons[i];
         }
     }
 }

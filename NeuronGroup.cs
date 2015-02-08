@@ -69,6 +69,12 @@ namespace Raahn
             axonGroups.Add(axonGroup);
         }
 
+        public void Reset()
+        {
+            for (int i = 0; i < neurons.Count; i++)
+                neurons[i] = 0.0;
+        }
+
         public void ComputeSignal()
         {
             for (int i = 0; i < dendriteGroups.Count; i++)

@@ -33,9 +33,16 @@ namespace Raahn
 
         public void PropagateSignal()
         {
-            //Reset the state of the groups that have to be computed, except for the output groups.
+            //Reset the computed state of hidden layer neurons.
+            //Also reset the values for hidden and output neurons.
             for (int i = 0; i < hiddenGroups.Count; i++)
+            {
                 hiddenGroups[i].computed = false;
+                hiddenGroups[i].Reset();
+            }
+
+            for (int i = 0; i < outputGroups.Count; i++)
+                outputGroups[i].Reset();
 
             for (int i = 0; i < outputGroups.Count; i++)
                 outputGroups[i].ComputeSignal();
@@ -48,9 +55,6 @@ namespace Raahn
 
             for (int y = 0; y < hiddenGroups.Count; y++)
                 hiddenGroups[y].Train();
-
-            for (int y = 0; y < outputGroups.Count; y++)
-                outputGroups[y].Train();
         }
 
         //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
@@ -93,6 +97,9 @@ namespace Raahn
                 for (uint y = 0; y < oGroup.neurons.Count; y++)
                     cGroup.AddConnection(x, y, rand.NextDouble());
             }
+
+            if (useBias)
+                cGroup.AddBiasWeights((uint)oGroup.neurons.Count, rand.NextDouble());
 
             iGroup.AddAxonGroup(cGroup);
             oGroup.AddDendriteGroup(cGroup);

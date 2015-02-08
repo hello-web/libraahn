@@ -65,20 +65,32 @@ namespace Raahn
             connections.Add(new Connection(inputIndex, outputIndex, weight));
         }
 
+        public void AddBiasWeights(uint outputCount, double weight)
+        {
+            if (biasWeights == null)
+                return;
+
+            for (uint i = 0; i < outputCount; i++)
+                biasWeights.Add(weight);
+        }
+
         public void PropagateSignal()
         {
-            //Initialize all outputs to zero so they can be used
-            //to temporarily hold the sum of the weighted inputs.
-            //The activation function is applied afterward.
-            for (int i = 0; i < outputGroup.neurons.Count; i++)
-                outputGroup.neurons[i] = 0.0;
-
+            //Make sure the input group is computed.
             if (!inputGroup.computed)
                 inputGroup.ComputeSignal();
 
+            //Use the output neurons to temporarily hold the sum of
+            //the weighted inputs. Then apply the activation function.
             for (int i = 0; i < connections.Count; i++)
                 outputGroup.neurons[(int)connections[i].output] += inputGroup.neurons[(int)connections[i].input]
                 * connections[i].weight;
+
+            if (biasWeights != null)
+            {
+                for (int i = 0; i < biasWeights.Count; i++)
+                    outputGroup.neurons[i] += biasWeights[i];
+            }
         }
 
         public void Train()
