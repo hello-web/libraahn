@@ -48,16 +48,12 @@ namespace Raahn
             outputGroup = outGroup;
 
             //Default to autoencoder training.
+            trainingMethod = TrainingMethod.AutoencoderTrain;
+
             if (useBias)
-            {
                 biasWeights = new List<double>();
-                trainingMethod = TrainingMethod.BiasAutoencoderTrain;
-            }
             else
-            {
                 biasWeights = null;
-                trainingMethod = TrainingMethod.AutoencoderTrain;
-            }
         }
 
         public void AddConnection(uint inputIndex, uint outputIndex, double weight)
@@ -105,12 +101,6 @@ namespace Raahn
 
         public void SetTrainingMethod(TrainFunctionType method)
         {
-            if (biasWeights == null)
-            {
-                if (method == TrainingMethod.BiasAutoencoderTrain || method == TrainingMethod.BiasHebbianTrain)
-                    return;
-            }
-
             trainingMethod = method;
         }
 
