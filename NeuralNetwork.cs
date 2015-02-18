@@ -57,6 +57,25 @@ namespace Raahn
                 hiddenGroups[y].Train();
         }
 
+        public void DisplayWeights()
+        {
+            Console.WriteLine("Displaying outgoing weights.\n");
+
+            //Display outgoing connections from input groups.
+            for (int x = 0; x < allListGroups[0].Count; x++)
+            {
+                Console.WriteLine("Displaying weights for input group {0}", x);
+                allListGroups[0][x].DisplayOutgoingWeights();
+            }
+
+            //Display outgoing connections from hidden groups.
+            for (int x = 0; x < allListGroups[1].Count; x++)
+            {
+                Console.WriteLine("Displaying weights for output group {0}:", x);
+                allListGroups[1][x].DisplayOutgoingWeights();
+            }
+        }
+
         //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
         //If too many inputs are provided, the excess is discarded.
         public bool SetInputs(uint groupIndex, double[] data)

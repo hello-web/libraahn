@@ -23,10 +23,8 @@ namespace Raahn
 
         public bool computed;
 		public List<double> neurons;
-        //List of pointers to each connection group connected to this neuron group.
-        private List<ConnectionGroup> dendriteGroups;
-        //List of outgoing connections instantiated by this group.
-        private List<ConnectionGroup> axonGroups;
+        private List<ConnectionGroup> incomingGroups;
+        private List<ConnectionGroup> outgoingGroups;
         private NeuralNetwork ann;
 
         public NeuronGroup(NeuralNetwork network, Type t)
@@ -49,8 +47,8 @@ namespace Raahn
 
             neurons = new List<double>();
 
-            dendriteGroups = new List<ConnectionGroup>();
-            axonGroups = new List<ConnectionGroup>();
+            incomingGroups = new List<ConnectionGroup>();
+            outgoingGroups = new List<ConnectionGroup>();
         }
 
         public void AddNeurons(uint count)
@@ -61,12 +59,12 @@ namespace Raahn
 
         public void AddDendriteGroup(ConnectionGroup dendriteGroup)
         {
-            dendriteGroups.Add(dendriteGroup);
+            incomingGroups.Add(dendriteGroup);
         }
 
         public void AddAxonGroup(ConnectionGroup axonGroup)
         {
-            axonGroups.Add(axonGroup);
+            outgoingGroups.Add(axonGroup);
         }
 
         public void Reset()
@@ -77,8 +75,8 @@ namespace Raahn
 
         public void ComputeSignal()
         {
-            for (int i = 0; i < dendriteGroups.Count; i++)
-                dendriteGroups[i].PropagateSignal();
+            for (int i = 0; i < incomingGroups.Count; i++)
+                incomingGroups[i].PropagateSignal();
 
             //Finish computing the signal by applying the activation function.
             for (int i = 0; i < neurons.Count; i++)
@@ -89,8 +87,20 @@ namespace Raahn
 
         public void Train()
         {
-            for (int i = 0; i < axonGroups.Count; i++)
-                axonGroups[i].Train();
+            for (int i = 0; i < outgoingGroups.Count; i++)
+                outgoingGroups[i].Train();
+        }
+
+        public void DisplayIncomingWeights()
+        {
+            for (int i = 0; i < incomingGroups.Count; i++)
+                incomingGroups[i].DisplayWeights();
+        }
+
+        public void DisplayOutgoingWeights()
+        {
+            for (int i = 0; i < outgoingGroups.Count; i++)
+                outgoingGroups[i].DisplayWeights();
         }
 
         //Returns true if the neuron was able to be removed, false otherwise.

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Raahn
@@ -102,6 +103,18 @@ namespace Raahn
         public void SetTrainingMethod(TrainFunctionType method)
         {
             trainingMethod = method;
+        }
+
+        public void DisplayWeights()
+        {
+            for (int i = 0; i < connections.Count; i++)
+                Console.WriteLine(connections[i].weight);
+
+            if (biasWeights != null)
+            {
+                for (int i = 0; i < biasWeights.Count; i++)
+                    Console.WriteLine(biasWeights[i]);
+            }
         }
 
         //Returns true if the connection was able to be removed, false otherwise.

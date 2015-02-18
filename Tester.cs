@@ -10,12 +10,12 @@ namespace Raahn
 
         private readonly string[] options = 
         {
-            "xor"
+            "or", "xor"
         };
 
         private readonly TestFunctionType[] tests = 
         {
-            XorTest
+            OrTest, XorTest
         };
 
         private const int EXIT_S = 0;
@@ -42,7 +42,88 @@ namespace Raahn
 
             tests[actionIndex]();
 
+            Console.WriteLine("Done.");
+
             return EXIT_S;
+        }
+
+        private static void OrTest()
+        {
+            uint inputCount = 2;
+            uint outputCount = 1;
+            int epochs = 1000;
+            int delay = 0;
+            bool useBias = true;
+
+            double learningRate = 0.1;
+
+            double[][] inputs = new double[4][]
+            {
+                new double[] { 0.0, 0.0 },
+                new double[] { 1.0, 0.0 },
+                new double[] { 0.0, 1.0 },
+                new double[] { 1.0, 1.0 }
+            };
+
+            double[] labels = 
+            {
+                0.0,
+                1.0,
+                1.0,
+                1.0
+            };
+
+            uint iToOSig = ModulationSignal.AddSignal();
+
+            NeuralNetwork ann = new NeuralNetwork(learningRate);
+
+            NeuronGroup.Identifier inputGroup = new NeuronGroup.Identifier();
+            inputGroup.type = NeuronGroup.Type.INPUT;
+
+            NeuronGroup.Identifier outputGroup = new NeuronGroup.Identifier();
+            outputGroup.type = NeuronGroup.Type.OUTPUT;
+
+            inputGroup.index = ann.AddNeuronGroup(inputCount, inputGroup.type);
+            outputGroup.index = ann.AddNeuronGroup(outputCount, outputGroup.type);
+
+            ann.ConnectGroups(inputGroup, outputGroup, TrainingMethod.HebbianTrain, iToOSig, useBias);
+
+            for (int i = 0; i < epochs; i++)
+            {
+                for (int x = 0; x < inputs.Length; x++)
+                {
+                    ann.SetInputs((uint)inputGroup.index, inputs[x]);
+
+                    ann.PropagateSignal();
+
+                    double guess = ann.GetNeuronValue(outputGroup, 0);
+                    double modulation = ((1.0 - Math.Abs(labels[x] - guess)) * 2.0) - 1.0;
+
+                    ModulationSignal.SetSignal(iToOSig, modulation);
+
+                    //Print verbose.
+                    Console.WriteLine(String.Format("Training example {0}, epoch {1}", x, i));
+                    Console.WriteLine("Output:{0:0.0000}, Modulation:{1:0.0000}\n", guess, modulation);
+
+                    ann.DisplayWeights();
+
+                    Console.WriteLine();
+
+                    if (delay > 0)
+                        System.Threading.Thread.Sleep(delay);
+
+                    ann.Train();
+                }
+            }
+
+            for (int x = 0; x < inputs.Length; x++)
+            {
+                ann.SetInputs((uint)inputGroup.index, inputs[x]);
+                ann.PropagateSignal();
+
+                Console.WriteLine(ann.GetNeuronValue(outputGroup, 0));
+                Console.WriteLine();
+            }
         }
 
         private static void XorTest()
@@ -53,7 +134,7 @@ namespace Raahn
             int epochs = 10000;
             bool useBias = true;
 
-            double learningRate = 1.0;
+            double learningRate = 0.1;
 
             double[][] inputs = new double[4][]
             {
@@ -118,8 +199,6 @@ namespace Raahn
                 Console.WriteLine(ann.GetNeuronValue(outputGroup, 0));
                 Console.WriteLine();
             }
-
-            Console.WriteLine("Done.");
         }
     }
 }
