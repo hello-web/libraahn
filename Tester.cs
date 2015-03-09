@@ -21,6 +21,8 @@ namespace Raahn
         private const int EXIT_S = 0;
         private const int EXIT_F = 1;
 
+        //Not an entry point with default build.
+        //Switch to executable to use as entry point.
         public int Execute(string[] args)
         {
             if (args.Length < 1)
