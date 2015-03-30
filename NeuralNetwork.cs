@@ -120,8 +120,8 @@ namespace Raahn
             if (useBias)
                 cGroup.AddBiasWeights((uint)oGroup.neurons.Count, rand.NextDouble());
 
-            iGroup.AddAxonGroup(cGroup);
-            oGroup.AddDendriteGroup(cGroup);
+            iGroup.AddOutgoingGroup(cGroup);
+            oGroup.AddIncomingGroup(cGroup);
 
             return true;
         }

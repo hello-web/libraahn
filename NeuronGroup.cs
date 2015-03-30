@@ -57,14 +57,14 @@ namespace Raahn
                 neurons.Add(NEURON_DEFAULT_VALUE);
         }
 
-        public void AddDendriteGroup(ConnectionGroup dendriteGroup)
+        public void AddIncomingGroup(ConnectionGroup incomingGroup)
         {
-            incomingGroups.Add(dendriteGroup);
+            incomingGroups.Add(incomingGroup);
         }
 
-        public void AddAxonGroup(ConnectionGroup axonGroup)
+        public void AddOutgoingGroup(ConnectionGroup outgoingGroup)
         {
-            outgoingGroups.Add(axonGroup);
+            outgoingGroups.Add(outgoingGroup);
         }
 
         public void Reset()
