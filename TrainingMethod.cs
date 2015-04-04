@@ -88,7 +88,7 @@ namespace Raahn
                 //The length of biasWeights should always be equal to the length of outGroup.neurons.
                 for (int i = 0; i < biasWeights.Count; i++)
                 {
-                    double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+                    double normalizedOutput = outGroup.neurons[i] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
 
                     biasWeights[i] += modSig * learningRate * normalizedOutput;
                 }
