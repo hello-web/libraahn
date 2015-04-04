@@ -5,6 +5,10 @@ namespace Raahn
     public class TrainingMethod
     {
         private const double BIAS_INPUT = 1.0;
+        private const double HEBBIAN_SCALE = 2.0;
+        //Since sigmoid returns values between 0,1 half
+        //the scale will be the distance in both directions.
+        private const double HEBBIAN_OFFSET = HEBBIAN_SCALE / 2.0;
 
         //Autoencoder training with tied weights.
         public static void AutoencoderTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
@@ -71,14 +75,23 @@ namespace Raahn
             double modSig = ModulationSignal.GetSignal(modIndex);
 
             for (int i = 0; i < connections.Count; i++)
-                connections[i].weight += modSig * learningRate * inGroup.neurons[(int)connections[i].input]
-                * outGroup.neurons[(int)connections[i].output];
+            {
+                //Normalize to [-1, 1] to allow for postive and negative deltas without modulation.
+                double normalizedInput = inGroup.neurons[(int)connections[i].input] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+                double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+
+                connections[i].weight += modSig * learningRate * normalizedInput * normalizedOutput;
+            }
 
             if (biasWeights != null)
             {
                 //The length of biasWeights should always be equal to the length of outGroup.neurons.
                 for (int i = 0; i < biasWeights.Count; i++)
-                    biasWeights[i] += modSig * learningRate * outGroup.neurons[i];
+                {
+                    double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+
+                    biasWeights[i] += modSig * learningRate * normalizedOutput;
+                }
             }
         }
     }
