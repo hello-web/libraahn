@@ -5,21 +5,35 @@ namespace Raahn
 {
 	public class NeuralNetwork
 	{
+        private const double DEFAULT_LEARNING_RATE = 0.1;
+
         public delegate double ActivationFunctionType(double x);
 
+        public double learningRate;
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
-        private double learningRate;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
         private List<NeuronGroup> outputGroups;
 
+        public NeuralNetwork()
+        {
+            learningRate = DEFAULT_LEARNING_RATE;
+
+            Construct();
+        }
+
 		public NeuralNetwork(double lRate)
 		{
             learningRate = lRate;
 
+            Construct();
+		}
+
+        public void Construct()
+        {
             allListGroups = new List<List<NeuronGroup>>();
 
             inputGroups = new List<NeuronGroup>();
@@ -29,7 +43,7 @@ namespace Raahn
             allListGroups.Add(inputGroups);
             allListGroups.Add(hiddenGroups);
             allListGroups.Add(outputGroups);
-		}
+        }
 
         public void PropagateSignal()
         {
@@ -96,7 +110,7 @@ namespace Raahn
         //Returns false if one or both of the groups do not exist.
         //Returns true if the groups could be connected.
         public bool ConnectGroups(NeuronGroup.Identifier input, NeuronGroup.Identifier output, 
-                                  ConnectionGroup.TrainFunctionType trainMethod, uint modulationIndex, bool useBias)
+                                  ConnectionGroup.TrainFunctionType trainMethod, int modulationIndex, bool useBias)
         {
             if (!VerifyIdentifier(input) || !VerifyIdentifier(output))
                 return false;
@@ -108,7 +122,7 @@ namespace Raahn
 
             ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup, useBias);
             cGroup.SetTrainingMethod(trainMethod);
-            cGroup.SetModulationIndex((int)modulationIndex);
+            cGroup.SetModulationIndex(modulationIndex);
 
             for (uint x = 0; x < iGroup.neurons.Count; x++)
             {
@@ -172,6 +186,18 @@ namespace Raahn
                 return double.NaN;
 
             return allListGroups[typei][indexi].neurons[(int)neuronIndex];
+        }
+
+        //Returns double.Nan if the neuron or neuron group does not exist.
+        public double GetOutputValue(uint groupIndex, uint index)
+        {
+            if (groupIndex >= outputGroups.Count)
+                return double.NaN;
+
+            if (index >= outputGroups[(int)groupIndex].neurons.Count)
+                return double.NaN;
+
+            return outputGroups[(int)groupIndex].neurons[(int)index];
         }
 
         public double GetLearningRate()

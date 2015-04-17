@@ -7,6 +7,7 @@ namespace Raahn
 	{
         public enum Type
         {
+            NONE = -1,
             INPUT = 0,
             HIDDEN = 1,
             OUTPUT = 2

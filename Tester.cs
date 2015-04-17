@@ -88,7 +88,7 @@ namespace Raahn
             inputGroup.index = ann.AddNeuronGroup(inputCount, inputGroup.type);
             outputGroup.index = ann.AddNeuronGroup(outputCount, outputGroup.type);
 
-            ann.ConnectGroups(inputGroup, outputGroup, TrainingMethod.HebbianTrain, iToOSig, useBias);
+            ann.ConnectGroups(inputGroup, outputGroup, TrainingMethod.HebbianTrain, (int)iToOSig, useBias);
 
             for (int i = 0; i < epochs; i++)
             {
@@ -172,8 +172,8 @@ namespace Raahn
             hiddenGroup.index = ann.AddNeuronGroup(hiddenCount, hiddenGroup.type);
             outputGroup.index = ann.AddNeuronGroup(outputCount, outputGroup.type);
 
-            ann.ConnectGroups(inputGroup, hiddenGroup, TrainingMethod.HebbianTrain, iToHSig, useBias);
-            ann.ConnectGroups(hiddenGroup, outputGroup, TrainingMethod.HebbianTrain, hToOSig, useBias);
+            ann.ConnectGroups(inputGroup, hiddenGroup, TrainingMethod.HebbianTrain, (int)iToHSig, useBias);
+            ann.ConnectGroups(hiddenGroup, outputGroup, TrainingMethod.HebbianTrain, (int)hToOSig, useBias);
 
             for (int i = 0; i < epochs; i++)
             {

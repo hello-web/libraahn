@@ -7,14 +7,14 @@ namespace Raahn
         //-1 to obtain passive modulation from ModulationSignal.GetSignal
         public const int INVALID_INDEX = -1;
         //Has no effect when multiplying.
-        private const double DEFAULT_MODULATION = 1.0;
+        private const double BENIGN_MODULATION = 1.0;
 
         private static List<double> modulations = new List<double>();
 
         //Returns the index of the signal.
         public static uint AddSignal()
         {
-            modulations.Add(DEFAULT_MODULATION);
+            modulations.Add(BENIGN_MODULATION);
             return (uint)(modulations.Count - 1);
         }
 
@@ -29,7 +29,7 @@ namespace Raahn
         public static double GetSignal(int index)
         {
 			if (index < 0 || index >= modulations.Count)
-				return DEFAULT_MODULATION;
+                return BENIGN_MODULATION;
 			else
             	return modulations[index];
         }
@@ -43,4 +43,3 @@ namespace Raahn
         }
     }
 }
-
