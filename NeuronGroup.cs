@@ -74,6 +74,13 @@ namespace Raahn
                 neurons[i] = 0.0;
         }
 
+        public void ResetOutgoingGroups()
+        {
+            //Weights randomized between 0.0 and 1.0.
+            for (int i = 0; i < outgoingGroups.Count; i++)
+                outgoingGroups[i].ResetWeights();
+        }
+
         public void ComputeSignal()
         {
             for (int i = 0; i < incomingGroups.Count; i++)

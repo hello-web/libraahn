@@ -36,6 +36,8 @@ namespace Raahn
         private NeuronGroup inputGroup;
         private NeuronGroup outputGroup;
         private TrainFunctionType trainingMethod;
+        //Used for reseting weights.
+        private Random rand;
 
         public ConnectionGroup(NeuralNetwork network, NeuronGroup inGroup, NeuronGroup outGroup, bool useBias)
         {
@@ -55,6 +57,8 @@ namespace Raahn
                 biasWeights = new List<double>();
             else
                 biasWeights = null;
+
+            rand = new Random();
         }
 
         public void AddConnection(uint inputIndex, uint outputIndex, double weight)
@@ -115,6 +119,12 @@ namespace Raahn
                 for (int i = 0; i < biasWeights.Count; i++)
                     Console.WriteLine(biasWeights[i]);
             }
+        }
+
+        public void ResetWeights()
+        {
+            for (int i = 0; i < connections.Count; i++)
+                connections[i].weight = rand.NextDouble();
         }
 
         //Returns true if the connection was able to be removed, false otherwise.

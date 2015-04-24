@@ -90,6 +90,19 @@ namespace Raahn
             }
         }
 
+        //Resets the weights and every neuron of the neural network.
+        public void Reset()
+        {
+            for (int x = 0; x < allListGroups.Count; x++)
+            {
+                for (int y = 0; y < allListGroups[x].Count; y++)
+                {
+                    allListGroups[x][y].Reset();
+                    allListGroups[x][y].ResetOutgoingGroups();
+                }
+            }
+        }
+
         //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
         //If too many inputs are provided, the excess is discarded.
         public bool SetInputs(uint groupIndex, double[] data)
