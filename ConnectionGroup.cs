@@ -26,10 +26,14 @@ namespace Raahn
 
     public class ConnectionGroup
     {
-        public delegate void TrainFunctionType(int modIndex, NeuralNetwork ann, NeuronGroup inGroup,
+        public const double DEFAULT_LEARNING_RATE = 0.1;
+
+        public delegate void TrainFunctionType(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup,
                                                NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights);
 
         private int modSigIndex;
+        //Learning rate for all connections within the group.
+        private double learningRate;
         private List<double> biasWeights;
         private List<Connection> connections;
         private NeuralNetwork ann;
@@ -41,6 +45,8 @@ namespace Raahn
 
         public ConnectionGroup(NeuralNetwork network, NeuronGroup inGroup, NeuronGroup outGroup, bool useBias)
         {
+            learningRate = DEFAULT_LEARNING_RATE;
+
             connections = new List<Connection>();
 
             modSigIndex = ModulationSignal.INVALID_INDEX;
@@ -96,12 +102,17 @@ namespace Raahn
 
         public void Train()
         {
-            trainingMethod(modSigIndex, ann, inputGroup, outputGroup, connections, biasWeights);
+            trainingMethod(modSigIndex, learningRate, ann, inputGroup, outputGroup, connections, biasWeights);
         }
 
         public void SetModulationIndex(int index)
         {
             modSigIndex = index;
+        }
+
+        public void SetLearningRate(double lRate)
+        {
+            learningRate = lRate;
         }
 
         public void SetTrainingMethod(TrainFunctionType method)

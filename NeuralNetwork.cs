@@ -5,11 +5,8 @@ namespace Raahn
 {
 	public class NeuralNetwork
 	{
-        private const double DEFAULT_LEARNING_RATE = 0.1;
-
         public delegate double ActivationFunctionType(double x);
 
-        public double learningRate;
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
@@ -20,15 +17,11 @@ namespace Raahn
 
         public NeuralNetwork()
         {
-            learningRate = DEFAULT_LEARNING_RATE;
-
             Construct();
         }
 
 		public NeuralNetwork(double lRate)
 		{
-            learningRate = lRate;
-
             Construct();
 		}
 
@@ -123,7 +116,8 @@ namespace Raahn
         //Returns false if one or both of the groups do not exist.
         //Returns true if the groups could be connected.
         public bool ConnectGroups(NeuronGroup.Identifier input, NeuronGroup.Identifier output, 
-                                  ConnectionGroup.TrainFunctionType trainMethod, int modulationIndex, bool useBias)
+                                  ConnectionGroup.TrainFunctionType trainMethod, int modulationIndex, 
+                                  double learningRate, bool useBias)
         {
             if (!VerifyIdentifier(input) || !VerifyIdentifier(output))
                 return false;
@@ -134,6 +128,7 @@ namespace Raahn
             Random rand = new Random();
 
             ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup, useBias);
+            cGroup.SetLearningRate(learningRate);
             cGroup.SetTrainingMethod(trainMethod);
             cGroup.SetModulationIndex(modulationIndex);
 
@@ -211,11 +206,6 @@ namespace Raahn
                 return double.NaN;
 
             return outputGroups[(int)groupIndex].neurons[(int)index];
-        }
-
-        public double GetLearningRate()
-        {
-            return learningRate;
         }
 
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.

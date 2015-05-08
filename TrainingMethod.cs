@@ -11,11 +11,9 @@ namespace Raahn
         private const double HEBBIAN_OFFSET = HEBBIAN_SCALE / 2.0;
 
         //Autoencoder training with tied weights.
-        public static void AutoencoderTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
+        public static void AutoencoderTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
                                             NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
         {
-            double learningRate = ann.GetLearningRate();
-
             int reconstructionCount = inGroup.neurons.Count;
 
             if (biasWeights != null)
@@ -68,10 +66,9 @@ namespace Raahn
         }
 
         //Hebbian learning.
-        public static void HebbianTrain(int modIndex, NeuralNetwork ann, NeuronGroup inGroup, 
+        public static void HebbianTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
                                             NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
         {
-            double learningRate = ann.GetLearningRate();
             double modSig = ModulationSignal.GetSignal(modIndex);
 
             for (int i = 0; i < connections.Count; i++)
