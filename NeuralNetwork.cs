@@ -10,6 +10,7 @@ namespace Raahn
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
+        private double weightCap;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
@@ -18,24 +19,6 @@ namespace Raahn
         public NeuralNetwork()
         {
             Construct();
-        }
-
-		public NeuralNetwork(double lRate)
-		{
-            Construct();
-		}
-
-        public void Construct()
-        {
-            allListGroups = new List<List<NeuronGroup>>();
-
-            inputGroups = new List<NeuronGroup>();
-            hiddenGroups = new List<NeuronGroup>();
-            outputGroups = new List<NeuronGroup>();
-
-            allListGroups.Add(inputGroups);
-            allListGroups.Add(hiddenGroups);
-            allListGroups.Add(outputGroups);
         }
 
         public void PropagateSignal()
@@ -96,6 +79,12 @@ namespace Raahn
             }
         }
 
+        //Sets the maximum weight value. Ignores sign.
+        public void SetWeightCap(double cap)
+        {
+            weightCap = Math.Abs(cap);
+        }
+
         //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
         //If too many inputs are provided, the excess is discarded.
         public bool SetInputs(uint groupIndex, double[] data)
@@ -140,12 +129,21 @@ namespace Raahn
             }
 
             if (useBias)
-                cGroup.AddBiasWeights((uint)oGroup.neurons.Count, rand.NextDouble());
+                cGroup.AddBiasWeights((uint)oGroup.neurons.Count);
 
             iGroup.AddOutgoingGroup(cGroup);
             oGroup.AddIncomingGroup(cGroup);
 
             return true;
+        }
+
+        //Gets the number of neurons in a group. Returns 0 if the group is invalid.
+        public uint GetGroupNeuronCount(NeuronGroup.Identifier ident)
+        {
+            if (!VerifyIdentifier(ident))
+                return 0;
+
+            return allListGroups[(int)ident.type][ident.index].GetNeuronCount();
         }
 
         //Returns the index of the neuron group.
@@ -156,29 +154,47 @@ namespace Raahn
 
             NeuronGroup newGroup = new NeuronGroup(this, type);
             newGroup.AddNeurons(neuronCount);
+            newGroup.type = type;
 
             switch (type)
             {
                 case NeuronGroup.Type.INPUT:
                 {
                     inputGroups.Add(newGroup);
-                    return inputGroups.Count - 1;
+                    int groupIndex = inputGroups.Count - 1;
+
+                    newGroup.index = groupIndex;
+
+                    return groupIndex;
                 }
                 case NeuronGroup.Type.HIDDEN:
                 {
                     hiddenGroups.Add(newGroup);
-                    return hiddenGroups.Count - 1;
+                    int groupIndex = hiddenGroups.Count - 1;
+
+                    newGroup.index = groupIndex;
+
+                    return groupIndex;
                 }
                 case NeuronGroup.Type.OUTPUT:
                 {
                     outputGroups.Add(newGroup);
-                    return outputGroups.Count - 1;
+                    int groupIndex = outputGroups.Count - 1;
+
+                    newGroup.index = groupIndex;
+
+                    return groupIndex;
                 }
                 default:
                 {
                     return NeuronGroup.INVALID_NEURON_INDEX;
                 }
             }
+        }
+
+        public double GetWeightCap()
+        {
+            return weightCap;
         }
 
         //Returns double.Nan if the neuron or neuron group does not exist.
@@ -206,6 +222,53 @@ namespace Raahn
                 return double.NaN;
 
             return outputGroups[(int)groupIndex].neurons[(int)index];
+        }
+
+        //Get neuron values of a neuron group.
+        public List<double> GetNeuronValues(NeuronGroup.Identifier nGroup)
+        {
+            if (!VerifyIdentifier(nGroup))
+                return null;
+
+            List<double> neuronValues = new List<double>();
+
+            for (int i = 0; i < allListGroups[(int)nGroup.type][nGroup.index].neurons.Count; i++)
+                neuronValues.Add(allListGroups[(int)nGroup.type][nGroup.index].neurons[i]);
+
+            return neuronValues;
+        }
+
+        //Get the strength of connections in a connection group.
+        public List<double> GetWeights(NeuronGroup.Identifier fromGroup, NeuronGroup.Identifier toGroup)
+        {
+            if (!VerifyIdentifier(fromGroup) || !VerifyIdentifier(toGroup))
+                return null;
+
+            return allListGroups[(int)fromGroup.type][fromGroup.index].GetWeights(toGroup);
+        }
+
+        //Returns the Ids of all groups connected by outgoing connections to the specifed group.
+        public List<NeuronGroup.Identifier> GetGroupsConnected(NeuronGroup.Identifier connectedTo)
+        {
+            if (!VerifyIdentifier(connectedTo))
+                return null;
+
+            return allListGroups[(int)connectedTo.type][connectedTo.index].GetGroupsConnected();
+        }
+
+        private void Construct()
+        {
+            weightCap = double.MaxValue;
+
+            allListGroups = new List<List<NeuronGroup>>();
+
+            inputGroups = new List<NeuronGroup>();
+            hiddenGroups = new List<NeuronGroup>();
+            outputGroups = new List<NeuronGroup>();
+
+            allListGroups.Add(inputGroups);
+            allListGroups.Add(hiddenGroups);
+            allListGroups.Add(outputGroups);
         }
 
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.

@@ -2,7 +2,7 @@ using System;
 
 namespace Raahn
 {
-    class Tester
+    public class Tester
     {
         private delegate void TestFunctionType();
 
@@ -77,7 +77,7 @@ namespace Raahn
 
             uint iToOSig = ModulationSignal.AddSignal();
 
-            NeuralNetwork ann = new NeuralNetwork(learningRate);
+            NeuralNetwork ann = new NeuralNetwork();
 
             NeuronGroup.Identifier inputGroup = new NeuronGroup.Identifier();
             inputGroup.type = NeuronGroup.Type.INPUT;
@@ -157,7 +157,7 @@ namespace Raahn
             uint iToHSig = ModulationSignal.AddSignal();
             uint hToOSig = ModulationSignal.AddSignal();
 
-            NeuralNetwork ann = new NeuralNetwork(learningRate);
+            NeuralNetwork ann = new NeuralNetwork();
 
             NeuronGroup.Identifier inputGroup = new NeuronGroup.Identifier();
             inputGroup.type = NeuronGroup.Type.INPUT;

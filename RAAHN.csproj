@@ -59,7 +59,7 @@
     <Compile Include="Tester.cs" />
     <Compile Include="ConnectionGroup.cs" />
     <Compile Include="ModulationSignal.cs" />
-    <Compile Include="Activation.cs" />
     <Compile Include="TrainingMethod.cs" />
+    <Compile Include="Activation.cs" />
   </ItemGroup>
 </Project>

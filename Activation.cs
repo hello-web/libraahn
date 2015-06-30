@@ -2,7 +2,7 @@ using System;
 
 namespace Raahn
 {
-    class Activation
+    public class Activation
     {
         public static double Logistic(double x)
         {

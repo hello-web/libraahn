@@ -22,7 +22,9 @@ namespace Raahn
         public const int INVALID_NEURON_INDEX = -1;
         private const double NEURON_DEFAULT_VALUE = 0.0;
 
+        public int index;
         public bool computed;
+        public NeuronGroup.Type type;
 		public List<double> neurons;
         private List<ConnectionGroup> incomingGroups;
         private List<ConnectionGroup> outgoingGroups;
@@ -109,6 +111,47 @@ namespace Raahn
         {
             for (int i = 0; i < outgoingGroups.Count; i++)
                 outgoingGroups[i].DisplayWeights();
+        }
+
+        public uint GetNeuronCount()
+        {
+            uint count = (uint)neurons.Count;
+
+            for (int i = 0; i < outgoingGroups.Count; i++)
+            {
+                if (outgoingGroups[i].UsesBiasWeights())
+                    return count + 1;
+            }
+
+            return count;
+        }
+
+        public List<double> GetWeights(NeuronGroup.Identifier toGroup)
+        {
+            for (int i = 0; i < outgoingGroups.Count; i++)
+            {
+                if (outgoingGroups[i].IsConnectedTo(toGroup))
+                    return outgoingGroups[i].GetWeights();
+            }
+
+            return null;
+        }
+
+        public List<NeuronGroup.Identifier> GetGroupsConnected()
+        {
+            List<NeuronGroup.Identifier> groupsConnected = new List<NeuronGroup.Identifier>(outgoingGroups.Count);
+
+            for (int i = 0; i < outgoingGroups.Count; i++)
+            {
+                NeuronGroup.Identifier ident;
+                ident.type = outgoingGroups[i].GetOutputGroupType();
+                ident.index = outgoingGroups[i].GetOutputGroupIndex();
+
+                if (!groupsConnected.Contains(ident))
+                    groupsConnected.Add(ident);
+            }
+
+            return groupsConnected;
         }
 
         //Returns true if the neuron was able to be removed, false otherwise.

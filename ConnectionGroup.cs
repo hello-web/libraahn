@@ -72,6 +72,17 @@ namespace Raahn
             connections.Add(new Connection(inputIndex, outputIndex, weight));
         }
 
+        public void AddBiasWeights(uint outputCount)
+        {
+            if (biasWeights == null)
+                return;
+
+            Random rand = new Random();
+
+            for (uint i = 0; i < outputCount; i++)
+                biasWeights.Add(rand.NextDouble());
+        }
+
         public void AddBiasWeights(uint outputCount, double weight)
         {
             if (biasWeights == null)
@@ -138,6 +149,24 @@ namespace Raahn
                 connections[i].weight = rand.NextDouble();
         }
 
+        public int GetInputGroupIndex()
+        {
+            return inputGroup.index;
+        }
+
+        public int GetOutputGroupIndex()
+        {
+            return outputGroup.index;
+        }
+
+        public bool UsesBiasWeights()
+        {
+            if (biasWeights != null)
+                return true;
+
+            return false;
+        }
+
         //Returns true if the connection was able to be removed, false otherwise.
         public bool RemoveConnection(uint index)
         {
@@ -148,6 +177,43 @@ namespace Raahn
             }
             else
                 return false;
+        }
+
+        public bool IsConnectedTo(NeuronGroup.Identifier toGroup)
+        {
+            if (outputGroup.type == toGroup.type && outputGroup.index == toGroup.index)
+                return true;
+
+            return false;
+        }
+
+        public NeuronGroup.Type GetInputGroupType()
+        {
+            return inputGroup.type;
+        }
+
+        public NeuronGroup.Type GetOutputGroupType()
+        {
+            return outputGroup.type;
+        }
+
+        //Returns a copy of the weights.
+        public List<double> GetWeights()
+        {
+            List<double> weights = new List<double>();
+
+            for (int i = 0; i < connections.Count; i++)
+                weights.Add(connections[i].weight);
+
+            if (biasWeights != null)
+            {
+                for (int i = 0; i < biasWeights.Count; i++)
+                {
+                    weights.Add(biasWeights[i]);
+                }
+            }
+
+            return weights;
         }
     }
 }

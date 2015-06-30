@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Raahn
@@ -14,6 +15,8 @@ namespace Raahn
         public static void AutoencoderTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
                                             NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
         {
+            double weightCap = ann.GetWeightCap();
+
             int reconstructionCount = inGroup.neurons.Count;
 
             if (biasWeights != null)
@@ -53,15 +56,25 @@ namespace Raahn
 
             //Update the weights with stochastic gradient descent.
             for (int i = 0; i < connections.Count; i++)
-                connections[i].weight += learningRate * errors[(int)connections[i].input]
+            {
+                double weightDelta = learningRate * errors[(int)connections[i].input]
                 * ann.activationDerivative(outGroup.neurons[(int)connections[i].output])
                 * outGroup.neurons[(int)connections[i].output];
+
+                if (Math.Abs(connections[i].weight + weightDelta) < weightCap)
+                    connections[i].weight += weightDelta;
+            }
 
             if (biasWeights != null)
             {
                 for (int i = 0; i < biasWeights.Count; i++)
-                    biasWeights[i] += learningRate * errors[biasRecIndex] * ann.activationDerivative(outGroup.neurons[i])
-                    * outGroup.neurons[i];
+                {
+                    double weightDelta = learningRate * errors[biasRecIndex]
+                    * ann.activationDerivative(outGroup.neurons[i]) * outGroup.neurons[i];
+
+                    if (Math.Abs(biasWeights[i] + weightDelta) < weightCap)
+                        biasWeights[i] += weightDelta;
+                }
             }
         }
 
@@ -70,6 +83,7 @@ namespace Raahn
                                             NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
         {
             double modSig = ModulationSignal.GetSignal(modIndex);
+            double weightCap = ann.GetWeightCap();
 
             for (int i = 0; i < connections.Count; i++)
             {
@@ -77,7 +91,10 @@ namespace Raahn
                 double normalizedInput = inGroup.neurons[(int)connections[i].input] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
                 double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
 
-                connections[i].weight += modSig * learningRate * normalizedInput * normalizedOutput;
+                double weightDelta = modSig * learningRate * normalizedInput * normalizedOutput;
+
+                if (Math.Abs(connections[i].weight + weightDelta) < weightCap)
+                    connections[i].weight += weightDelta;
             }
 
             if (biasWeights != null)
@@ -87,10 +104,12 @@ namespace Raahn
                 {
                     double normalizedOutput = outGroup.neurons[i] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
 
-                    biasWeights[i] += modSig * learningRate * normalizedOutput;
+                    double weightDelta = modSig * learningRate * normalizedOutput;
+
+                    if (Math.Abs(biasWeights[i] + weightDelta) < weightCap)
+                        biasWeights[i] += weightDelta;
                 }
             }
         }
     }
 }
-
