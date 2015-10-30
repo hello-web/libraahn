@@ -3,14 +3,22 @@ using System.Collections.Generic;
 
 namespace Raahn
 {
-	public class NeuralNetwork
-	{
+    public partial class NeuralNetwork
+    {
         public delegate double ActivationFunctionType(double x);
 
+        private const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
+
+        public static readonly Random genericRandom = new Random();
+
+        public double noiseMagnitude = 1.0;
+        public double noiseLowerBound;
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
+        private uint historyBufferSize;
         private double weightCap;
+        private Queue<List<double>> historyBuffer;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
@@ -18,7 +26,39 @@ namespace Raahn
 
         public NeuralNetwork()
         {
-            Construct();
+            Construct(DEFAULT_HISTORY_BUFFER_SIZE);
+        }
+
+        public NeuralNetwork(uint historySize)
+        {
+            if (historySize > 0)
+                Construct(historySize);
+            else
+                Construct(DEFAULT_HISTORY_BUFFER_SIZE);
+        }
+
+        //Adds a training sample to the history buffer.
+        public void AddSample(List<double> newSample)
+        {
+            //If the buffer is full, pop the back and add the new sample.
+            if (historyBuffer.Count == historyBufferSize)
+                historyBuffer.Dequeue();
+
+            historyBuffer.Enqueue(newSample);
+
+            SetSample(newSample);
+        }
+
+        public void AddOutputNoise()
+        {
+            //Uniform noise for the entire output layer.
+            double noise = (genericRandom.NextDouble() * noiseMagnitude) + noiseLowerBound;
+
+            for (int x = 0; x < outputGroups.Count; x++)
+            {
+                for (int y = 0; y < outputGroups[x].neurons.Count; y++)
+                    outputGroups[x].neurons[y] += noise;
+            }
         }
 
         public void PropagateSignal()
@@ -40,11 +80,17 @@ namespace Raahn
 
         public void Train()
         {
-            for (int y = 0; y < inputGroups.Count; y++)
-                inputGroups[y].Train();
+            for (int i = 0; i < inputGroups.Count; i++)
+                inputGroups[i].TrainRecent();
 
-            for (int y = 0; y < hiddenGroups.Count; y++)
-                hiddenGroups[y].Train();
+            for (int i = 0; i < inputGroups.Count; i++)
+                inputGroups[i].TrainSeveral();
+
+            for (int i = 0; i < hiddenGroups.Count; i++)
+                hiddenGroups[i].TrainRecent();
+
+            for (int i = 0; i < hiddenGroups.Count; i++)
+                hiddenGroups[i].TrainSeveral();
         }
 
         public void DisplayWeights()
@@ -85,28 +131,17 @@ namespace Raahn
             weightCap = Math.Abs(cap);
         }
 
-        //Returns false if the input group doesn't exist, or the data is too short. True otherwise.
-        //If too many inputs are provided, the excess is discarded.
-        public bool SetInputs(uint groupIndex, double[] data)
+        public void SetOutput(uint groupIndex, uint index, double value)
         {
-            if (groupIndex >= inputGroups.Count)
-                return false;
-            if (data.Length < inputGroups[(int)groupIndex].neurons.Count)
-                return false;
-
-            int groupIndexi = (int)groupIndex;
-
-            for (int i = 0; i < inputGroups[groupIndexi].neurons.Count; i++)
-                inputGroups[groupIndexi].neurons[i] = data[i];
-
-            return true;
+            outputGroups[(int)groupIndex].neurons[(int)index] = value;
         }
 
         //Returns false if one or both of the groups do not exist.
         //Returns true if the groups could be connected.
+        //Sample count refers to how many training samples should be used each time Train() is called.
         public bool ConnectGroups(NeuronGroup.Identifier input, NeuronGroup.Identifier output, 
                                   ConnectionGroup.TrainFunctionType trainMethod, int modulationIndex, 
-                                  double learningRate, bool useBias)
+                                  uint sampleCount, double learningRate, bool useBias)
         {
             if (!VerifyIdentifier(input) || !VerifyIdentifier(output))
                 return false;
@@ -117,6 +152,7 @@ namespace Raahn
             Random rand = new Random();
 
             ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup, useBias);
+            cGroup.sampleUsageCount = sampleCount;
             cGroup.SetLearningRate(learningRate);
             cGroup.SetTrainingMethod(trainMethod);
             cGroup.SetModulationIndex(modulationIndex);
@@ -131,7 +167,8 @@ namespace Raahn
             if (useBias)
                 cGroup.AddBiasWeights((uint)oGroup.neurons.Count);
 
-            iGroup.AddOutgoingGroup(cGroup);
+            //sampleCount of zero refers to training off of the most recent experience.
+            iGroup.AddOutgoingGroup(cGroup, sampleCount == 0);
             oGroup.AddIncomingGroup(cGroup);
 
             return true;
@@ -167,7 +204,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                case NeuronGroup.Type.HIDDEN:
+                    case NeuronGroup.Type.HIDDEN:
                 {
                     hiddenGroups.Add(newGroup);
                     int groupIndex = hiddenGroups.Count - 1;
@@ -176,7 +213,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                case NeuronGroup.Type.OUTPUT:
+                    case NeuronGroup.Type.OUTPUT:
                 {
                     outputGroups.Add(newGroup);
                     int groupIndex = outputGroups.Count - 1;
@@ -185,7 +222,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                default:
+                    default:
                 {
                     return NeuronGroup.INVALID_NEURON_INDEX;
                 }
@@ -256,9 +293,12 @@ namespace Raahn
             return allListGroups[(int)connectedTo.type][connectedTo.index].GetGroupsConnected();
         }
 
-        private void Construct()
+        private void Construct(uint historySize)
         {
             weightCap = double.MaxValue;
+
+            historyBufferSize = historySize;
+            historyBuffer = new Queue<List<double>>((int)historyBufferSize);
 
             allListGroups = new List<List<NeuronGroup>>();
 
@@ -269,6 +309,32 @@ namespace Raahn
             allListGroups.Add(inputGroups);
             allListGroups.Add(hiddenGroups);
             allListGroups.Add(outputGroups);
+        }
+
+        private void SetSample(List<double> sample)
+        {
+            int dataCount = sample.Count;
+            int sampleIndex = 0;
+
+            for (int x = 0; x < inputGroups.Count; x++)
+            {
+                if (dataCount <= 0)
+                    break;
+
+                int neuronCount = inputGroups[x].neurons.Count;
+
+                //If there is to little data use only what is provided.
+                if (dataCount < neuronCount)
+                    neuronCount = dataCount;
+
+                for (int y = 0; y < neuronCount; y++)
+                {
+                    inputGroups[x].neurons[y] = sample[sampleIndex];
+                    sampleIndex++;
+                }
+
+                dataCount -= neuronCount;
+            }
         }
 
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.
@@ -293,5 +359,5 @@ namespace Raahn
 
             return true;
         }
-	}
+    }
 }

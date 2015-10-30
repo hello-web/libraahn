@@ -53,13 +53,15 @@
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <Compile Include="Main.cs" />
     <Compile Include="NeuralNetwork.cs" />
     <Compile Include="NeuronGroup.cs" />
-    <Compile Include="Tester.cs" />
     <Compile Include="ConnectionGroup.cs" />
     <Compile Include="ModulationSignal.cs" />
     <Compile Include="TrainingMethod.cs" />
     <Compile Include="Activation.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
   </ItemGroup>
 </Project>

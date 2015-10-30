@@ -4,6 +4,7 @@ namespace Raahn
 {
     public class ModulationSignal
     {
+        public const double NO_MODULATION = 0.0;
         //-1 to obtain passive modulation from ModulationSignal.GetSignal
         public const int INVALID_INDEX = -1;
         //Has no effect when multiplying.
@@ -25,13 +26,18 @@ namespace Raahn
             return (uint)(modulations.Count - 1);
         }
 
-		//If the modulation does not exist, the default modulation is returnned.
+        //If the modulation does not exist, the default modulation is returnned.
         public static double GetSignal(int index)
         {
-			if (index < 0 || index >= modulations.Count)
+            if (index < 0 || index >= modulations.Count)
                 return BENIGN_MODULATION;
-			else
-            	return modulations[index];
+            else
+                return modulations[index];
+        }
+
+        public static uint GetSignalCount()
+        {
+            return (uint)modulations.Count;
         }
 
         public static void SetSignal(uint index, double value)
