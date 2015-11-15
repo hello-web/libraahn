@@ -97,11 +97,14 @@ namespace Raahn
                     //Normalize to [-1, 1] to allow for positive and negative deltas without modulation.
                     double normalizedInput = inGroup.neurons[(int)connections[i].input];// * HEBBIAN_SCALE - HEBBIAN_OFFSET;
                     double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+                    double noise = (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
 
-                    double weightDelta = modSig * learningRate * normalizedInput * normalizedOutput;
+                    double weightDelta = (modSig * learningRate * normalizedInput * normalizedOutput) + noise;
 
                     if (Math.Abs(connections[i].weight + weightDelta) < weightCap)
                         connections[i].weight += weightDelta;
+                    else
+                        connections[i].weight = Math.Sign(connections[i].weight) * weightCap;
                 }
 
                 if (biasWeights != null)
@@ -110,11 +113,14 @@ namespace Raahn
                     for (int i = 0; i < biasWeights.Count; i++)
                     {
                         double normalizedOutput = outGroup.neurons[i] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
+                        double noise = (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
 
-                        double weightDelta = modSig * learningRate * normalizedOutput;
+                        double weightDelta = (modSig * learningRate * normalizedOutput) + noise;
 
                         if (Math.Abs(biasWeights[i] + weightDelta) < weightCap)
                             biasWeights[i] += weightDelta;
+                        else
+                            biasWeights[i] = Math.Sign(biasWeights[i]) * weightCap;
                     }
                 }
             }

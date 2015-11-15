@@ -9,7 +9,7 @@ namespace Raahn
 
         private const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
 
-        public static readonly Random genericRandom = new Random();
+        public static readonly Random rand = new Random();
 
         public double noiseMagnitude = 1.0;
         public double noiseLowerBound;
@@ -49,18 +49,7 @@ namespace Raahn
             SetSample(newSample);
         }
 
-        public void AddOutputNoise()
-        {
-            //Uniform noise for the entire output layer.
-            double noise = (genericRandom.NextDouble() * noiseMagnitude) + noiseLowerBound;
-
-            for (int x = 0; x < outputGroups.Count; x++)
-            {
-                for (int y = 0; y < outputGroups[x].neurons.Count; y++)
-                    outputGroups[x].neurons[y] += noise;
-            }
-        }
-
+        //Propagates the inputs completely and gets output.
         public void PropagateSignal()
         {
             //Reset the computed state of hidden layer neurons.
@@ -149,8 +138,6 @@ namespace Raahn
             NeuronGroup iGroup = allListGroups[(int)input.type][(int)input.index];
             NeuronGroup oGroup = allListGroups[(int)output.type][(int)output.index];
 
-            Random rand = new Random();
-
             ConnectionGroup cGroup = new ConnectionGroup(this, iGroup, oGroup, useBias);
             cGroup.sampleUsageCount = sampleCount;
             cGroup.SetLearningRate(learningRate);
@@ -204,7 +191,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                    case NeuronGroup.Type.HIDDEN:
+                case NeuronGroup.Type.HIDDEN:
                 {
                     hiddenGroups.Add(newGroup);
                     int groupIndex = hiddenGroups.Count - 1;
@@ -213,7 +200,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                    case NeuronGroup.Type.OUTPUT:
+                case NeuronGroup.Type.OUTPUT:
                 {
                     outputGroups.Add(newGroup);
                     int groupIndex = outputGroups.Count - 1;
@@ -222,7 +209,7 @@ namespace Raahn
 
                     return groupIndex;
                 }
-                    default:
+                default:
                 {
                     return NeuronGroup.INVALID_NEURON_INDEX;
                 }

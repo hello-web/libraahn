@@ -29,6 +29,7 @@ namespace Raahn
             public bool computed;
             public NeuronGroup.Type type;
             public List<double> neurons;
+            private bool useNoise;
             private List<ConnectionGroup> incomingGroups;
             //All outgoing groups.
             private List<ConnectionGroup> outgoingGroups;
@@ -56,6 +57,8 @@ namespace Raahn
 
                 computed = true;
 
+                useNoise = false;
+
                 neurons = new List<double>();
 
                 incomingGroups = new List<ConnectionGroup>();
@@ -73,6 +76,12 @@ namespace Raahn
             public void AddIncomingGroup(ConnectionGroup incomingGroup)
             {
                 incomingGroups.Add(incomingGroup);
+
+                //Noise must be used for Hebbian trained connection groups.
+                //Noise is added after the activation function, so it has to
+                //be addded if there is at least one Hebbain trained connection group.
+                if (incomingGroup.GetTrainingMethod() == TrainingMethod.HebbianTrain)
+                    useNoise = true;
             }
 
             //mostRecent refers to whether the group should train off of only the most recent experience.
@@ -106,8 +115,18 @@ namespace Raahn
                     incomingGroups[i].PropagateSignal();
 
                 //Finish computing the signal by applying the activation function.
-                for (int i = 0; i < neurons.Count; i++)
-                    neurons[i] = ann.activation(neurons[i]);
+                //Add noise if Hebbian trained connections are present.
+                if (useNoise) 
+                {
+                    for (int i = 0; i < neurons.Count; i++) 
+                        neurons[i] = ann.activation(neurons[i]) 
+                            + (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
+                }
+                else
+                {
+                    for (int i = 0; i < neurons.Count; i++) 
+                        neurons[i] = ann.activation(neurons[i]);
+                }
 
                 computed = true;
             }
@@ -139,7 +158,7 @@ namespace Raahn
                     for (uint y = 0; y < sampleCount; y++)
                     {
                         //Select a random sample.
-                        List<double> sample = samples.ElementAt(NeuralNetwork.genericRandom.Next(samples.Count));
+                        List<double> sample = samples.ElementAt(NeuralNetwork.rand.Next(samples.Count));
                         samples.Remove(sample);
 
                         ann.SetSample(sample);

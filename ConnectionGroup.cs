@@ -217,9 +217,7 @@ namespace Raahn
                 if (biasWeights != null)
                 {
                     for (int i = 0; i < biasWeights.Count; i++)
-                    {
                         weights.Add(biasWeights[i]);
-                    }
                 }
 
                 return weights;
