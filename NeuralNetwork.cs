@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace Raahn
@@ -247,6 +248,39 @@ namespace Raahn
 
             return outputGroups[(int)groupIndex].neurons[(int)index];
         }
+
+		//Returns the sum of the squared error for the current sample.
+		public double GetReconstructionError()
+		{
+			PropagateSignal();
+
+			double error = 0.0;
+
+			for (int i = 0; i < inputGroups.Count; i++)
+				error += inputGroups[i].GetReconstructionError();
+
+			for (int i = 0; i < hiddenGroups.Count; i++)
+				error += hiddenGroups[i].GetReconstructionError();
+
+			return error;
+		}
+
+		//Returns the average reconstruction error for the entire history buffer.
+		public double GetAverageReconstructionError()
+		{
+			double error = 0.0;
+
+			foreach (List<double> sample in historyBuffer) 
+			{
+				SetSample(sample);
+
+				error += GetReconstructionError();
+			}
+
+			error /= historyBuffer.Count;
+
+			return error;
+		}
 
         //Get neuron values of a neuron group.
         public List<double> GetNeuronValues(NeuronGroup.Identifier nGroup)

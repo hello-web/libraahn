@@ -163,6 +163,58 @@ namespace Raahn
                 return outputGroup.index;
             }
 
+			public double GetReconstructionError()
+			{
+				//If a autoencoder training was not used there is no reconstruction error.
+				if (trainingMethod != TrainingMethod.AutoencoderTrain)
+					return 0.0;
+
+				int reconstructionCount = inputGroup.neurons.Count;
+
+				if (biasWeights != null)
+					reconstructionCount++;
+
+				//Plus one for the bias neuron.
+				double[] reconstructions = new double[reconstructionCount];
+				double[] errors = new double[reconstructionCount];
+
+				//If there is a bias neurons, it's reconstruction and error will be the last value in each.
+				int biasRecIndex = reconstructions.Length - 1;
+
+				//First sum the weighted values into the reconstructions to store them.
+				for (int i = 0; i < connections.Count; i++)
+					reconstructions[(int)connections[i].input] += outputGroup.neurons[(int)connections[i].output]
+					* connections[i].weight;
+
+				if (biasWeights != null)
+				{
+					for (int i = 0; i < biasWeights.Count; i++)
+						reconstructions[biasRecIndex] += biasWeights[i];
+				}
+
+				//Apply the activation function after the weighted values are summed.
+				//Also calculate the error of the reconstruction.
+				//Do the bias weights separately.
+				for (int i = 0; i < inputGroup.neurons.Count; i++)
+				{
+					reconstructions[i] = ann.activation(reconstructions[i]);
+					errors[i] = inputGroup.neurons[i] - reconstructions[i];
+				}
+
+				if (biasWeights != null)
+				{
+					reconstructions[biasRecIndex] = ann.activation(reconstructions[biasRecIndex]);
+					errors[biasRecIndex] = TrainingMethod.BIAS_INPUT - reconstructions[biasRecIndex];
+				}
+
+				double sumOfSquaredError = 0.0;
+
+				for (int i = 0; i < reconstructionCount; i++)
+					sumOfSquaredError += Math.Pow(errors[i], TrainingMethod.ERROR_POWER);
+
+				return (sumOfSquaredError / TrainingMethod.ERROR_POWER);
+			}
+
             public TrainFunctionType GetTrainingMethod()
             {
                 return trainingMethod;

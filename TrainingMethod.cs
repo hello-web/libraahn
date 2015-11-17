@@ -7,7 +7,8 @@ namespace Raahn
     {
         public class TrainingMethod
         {
-            private const double BIAS_INPUT = 1.0;
+            public const double BIAS_INPUT = 1.0;
+			public const double ERROR_POWER = 2.0;
             private const double HEBBIAN_SCALE = 2.0;
             //Since sigmoid returns values between 0,1 half
             //the scale will be the distance in both directions.
@@ -44,6 +45,7 @@ namespace Raahn
 
                 //Apply the activation function after the weighted values are summed.
                 //Also calculate the error of the reconstruction.
+				//Do the bias weights separately.
                 for (int i = 0; i < inGroup.neurons.Count; i++)
                 {
                     reconstructions[i] = ann.activation(reconstructions[i]);

@@ -235,6 +235,16 @@ namespace Raahn
                 else
                     return false;
             }
+
+			public double GetReconstructionError()
+			{
+				double error = 0.0;
+
+				for (int i = 0; i < outgoingGroups.Count; i++)
+					error += outgoingGroups[i].GetReconstructionError();
+
+				return error;
+			}
         }
     }
 }
