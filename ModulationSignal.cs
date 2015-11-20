@@ -8,7 +8,7 @@ namespace Raahn
         //-1 to obtain passive modulation from ModulationSignal.GetSignal
         public const int INVALID_INDEX = -1;
         //Has no effect when multiplying.
-        private const double BENIGN_MODULATION = 1.0;
+        public const double BENIGN_MODULATION = 0.0;
 
         private static List<double> modulations = new List<double>();
 

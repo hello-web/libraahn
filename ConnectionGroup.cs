@@ -30,7 +30,7 @@ namespace Raahn
         {
             public const double DEFAULT_LEARNING_RATE = 0.1;
 
-            public delegate void TrainFunctionType(int modIndex, double learningRate, NeuralNetwork ann, 
+            public delegate double TrainFunctionType(int modIndex, double learningRate, NeuralNetwork ann, 
                                                    NeuronGroup inGroup, NeuronGroup outGroup, 
                                                    List<Connection> connections, List<double> biasWeights);
 
@@ -81,10 +81,8 @@ namespace Raahn
                 if (biasWeights == null)
                     return;
 
-                Random rand = new Random();
-
                 for (uint i = 0; i < outputCount; i++)
-                    biasWeights.Add(rand.NextDouble());
+                    biasWeights.Add(NeuralNetwork.rand.NextDouble());
             }
 
             public void AddBiasWeights(uint outputCount, double weight)
@@ -113,11 +111,6 @@ namespace Raahn
                     for (int i = 0; i < biasWeights.Count; i++)
                         outputGroup.neurons[i] += biasWeights[i];
                 }
-            }
-
-            public void Train()
-            {
-                trainingMethod(modSigIndex, learningRate, ann, inputGroup, outputGroup, connections, biasWeights);
             }
 
             public void SetModulationIndex(int index)
@@ -163,6 +156,11 @@ namespace Raahn
                 return outputGroup.index;
             }
 
+            public double Train()
+            {
+                return trainingMethod(modSigIndex, learningRate, ann, inputGroup, outputGroup, connections, biasWeights);
+            }
+
 			public double GetReconstructionError()
 			{
 				//If a autoencoder training was not used there is no reconstruction error.
@@ -171,14 +169,14 @@ namespace Raahn
 
 				int reconstructionCount = inputGroup.neurons.Count;
 
+                //Plus one for the bias neuron.
 				if (biasWeights != null)
 					reconstructionCount++;
 
-				//Plus one for the bias neuron.
 				double[] reconstructions = new double[reconstructionCount];
 				double[] errors = new double[reconstructionCount];
 
-				//If there is a bias neurons, it's reconstruction and error will be the last value in each.
+				//If there is a bias neuron, it's reconstruction and error will be the last value in each.
 				int biasRecIndex = reconstructions.Length - 1;
 
 				//First sum the weighted values into the reconstructions to store them.

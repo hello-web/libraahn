@@ -118,9 +118,11 @@ namespace Raahn
                 //Add noise if Hebbian trained connections are present.
                 if (useNoise) 
                 {
-                    for (int i = 0; i < neurons.Count; i++) 
-                        neurons[i] = ann.activation(neurons[i]) 
-                            + (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
+                    for (int i = 0; i < neurons.Count; i++)
+                    {
+                        double noise = NeuralNetwork.rand.NextDouble() * ann.outputNoiseRange - ann.outputNoiseMagnitude;
+                        neurons[i] = ann.activation(neurons[i]) + noise;
+                    }
                 }
                 else
                 {
@@ -132,15 +134,27 @@ namespace Raahn
             }
 
             //Train groups which use the most recent experience.
-            public void TrainRecent()
+            public double TrainRecent()
             {
+                if (outTrainRecent.Count < 1)
+                    return TrainingMethod.NO_ERROR;
+
+                double error = 0.0;
+
                 for (int i = 0; i < outTrainRecent.Count; i++)
-                    outTrainRecent[i].Train();
+                    error += outTrainRecent[i].Train();
+
+                return error;
             }
 
             //Train groups which use several randomly selected experiences.
-            public void TrainSeveral()
+            public double TrainSeveral()
             {
+                if (outTrainSeveral.Count < 1)
+                    return TrainingMethod.NO_ERROR;
+
+                double error = 0.0;
+
                 uint historyBufferCount = (uint)ann.historyBuffer.Count;
 
                 LinkedList<List<double>> samples = new LinkedList<List<double>>();
@@ -164,11 +178,16 @@ namespace Raahn
                         ann.SetSample(sample);
                         ann.PropagateSignal();
 
-                        outTrainSeveral[i].Train();
+                        error += outTrainSeveral[i].Train();
                     }
+
+                    //Divide by the number of samples used.
+                    error /= sampleCount;
 
                     samples.Clear();
                 }
+
+                return error;
             }
 
             public void DisplayIncomingWeights()

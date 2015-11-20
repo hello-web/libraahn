@@ -8,34 +8,54 @@ namespace Raahn
     {
         public delegate double ActivationFunctionType(double x);
 
-        private const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
+        public const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
+        private const double DEFAULT_NOISE_MAGNITUDE = 1.0;
+        private const double DOUBLE_MAGNITUDE = 2.0;
 
         public static readonly Random rand = new Random();
 
-        public double noiseMagnitude = 1.0;
-        public double noiseLowerBound;
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
         private uint historyBufferSize;
         private double weightCap;
+        private double outputNoiseMagnitude;
+        private double weightNoiseMagnitude;
+        //Difference between max and min noise values.
+        private double outputNoiseRange;
+        private double weightNoiseRange;
+        private double averageError;
         private Queue<List<double>> historyBuffer;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
         private List<NeuronGroup> outputGroups;
+        private Queue<double> errorBuffer;
 
         public NeuralNetwork()
         {
-            Construct(DEFAULT_HISTORY_BUFFER_SIZE);
+            Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
         }
 
         public NeuralNetwork(uint historySize)
         {
             if (historySize > 0)
-                Construct(historySize);
+                Construct(historySize, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
             else
-                Construct(DEFAULT_HISTORY_BUFFER_SIZE);
+                Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
+        }
+
+        public NeuralNetwork(double outputNoiseMag, double weightNoiseMag)
+        {
+            Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag);
+        }
+
+        public NeuralNetwork(uint historySize, double outputNoiseMag, double weightNoiseMag)
+        {
+            if (historySize > 0)
+                Construct(historySize, outputNoiseMag, weightNoiseMag);
+            else
+                Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag);
         }
 
         //Adds a training sample to the history buffer.
@@ -68,19 +88,24 @@ namespace Raahn
                 outputGroups[i].ComputeSignal();
         }
 
+        //Returns autoencoder error.
         public void Train()
         {
-            for (int i = 0; i < inputGroups.Count; i++)
-                inputGroups[i].TrainRecent();
+            double error = 0.0;
 
             for (int i = 0; i < inputGroups.Count; i++)
-                inputGroups[i].TrainSeveral();
+                error += inputGroups[i].TrainRecent();
+
+            for (int i = 0; i < inputGroups.Count; i++)
+                error += inputGroups[i].TrainSeveral();
 
             for (int i = 0; i < hiddenGroups.Count; i++)
-                hiddenGroups[i].TrainRecent();
+                error += hiddenGroups[i].TrainRecent();
 
             for (int i = 0; i < hiddenGroups.Count; i++)
-                hiddenGroups[i].TrainSeveral();
+                error += hiddenGroups[i].TrainSeveral();
+
+            UpdateOnlineError(error);
         }
 
         public void DisplayWeights()
@@ -113,6 +138,11 @@ namespace Raahn
                     allListGroups[x][y].ResetOutgoingGroups();
                 }
             }
+
+            historyBuffer.Clear();
+            errorBuffer.Clear();
+
+            averageError = 0.0;
         }
 
         //Sets the maximum weight value. Ignores sign.
@@ -121,9 +151,32 @@ namespace Raahn
             weightCap = Math.Abs(cap);
         }
 
-        public void SetOutput(uint groupIndex, uint index, double value)
+        public void SetOutputNoiseMagnitude(double outputNoiseMag)
         {
-            outputGroups[(int)groupIndex].neurons[(int)index] = value;
+            outputNoiseMagnitude = outputNoiseMag;
+            outputNoiseRange = outputNoiseMag * DOUBLE_MAGNITUDE;
+        }
+
+        public void SetWeightNoiseMagnitude(double weightNoiseMag)
+        {
+            weightNoiseMagnitude = weightNoiseMag;
+            weightNoiseRange = weightNoiseMag * DOUBLE_MAGNITUDE;
+        }
+
+        //Returns whether the output was able to be set.
+        public bool SetOutput(uint groupIndex, uint index, double value)
+        {
+            if (groupIndex >= outputGroups.Count)
+                return false;
+
+            int groupIndexi = (int)groupIndex;
+
+            if (index >= outputGroups[groupIndexi].neurons.Count)
+                return false;
+
+            outputGroups[groupIndexi].neurons[(int)index] = value;
+
+            return true;
         }
 
         //Returns false if one or both of the groups do not exist.
@@ -249,8 +302,8 @@ namespace Raahn
             return outputGroups[(int)groupIndex].neurons[(int)index];
         }
 
-		//Returns the sum of the squared error for the current sample.
-		public double GetReconstructionError()
+		//Returns the sum of the squared reconstruction error for the current sample.
+		public double CalculateBatchError()
 		{
 			PropagateSignal();
 
@@ -266,7 +319,7 @@ namespace Raahn
 		}
 
 		//Returns the average reconstruction error for the entire history buffer.
-		public double GetAverageReconstructionError()
+		public double GetBatchError()
 		{
 			double error = 0.0;
 
@@ -274,13 +327,19 @@ namespace Raahn
 			{
 				SetSample(sample);
 
-				error += GetReconstructionError();
+				error += CalculateBatchError();
 			}
 
 			error /= historyBuffer.Count;
 
 			return error;
 		}
+
+        //Returns the average reconstruction error over the past [historyBufferSize] ticks.
+        public double GetOnlineError()
+        {
+            return averageError;
+        }
 
         //Get neuron values of a neuron group.
         public List<double> GetNeuronValues(NeuronGroup.Identifier nGroup)
@@ -314,12 +373,23 @@ namespace Raahn
             return allListGroups[(int)connectedTo.type][connectedTo.index].GetGroupsConnected();
         }
 
-        private void Construct(uint historySize)
+        private void Construct(uint historySize, double outputNoiseMag, double weightNoiseMag)
         {
+            outputNoiseMagnitude = outputNoiseMag;
+            weightNoiseMagnitude = weightNoiseMag;
+            outputNoiseRange = outputNoiseMagnitude * DOUBLE_MAGNITUDE;
+            weightNoiseRange = weightNoiseMagnitude * DOUBLE_MAGNITUDE;
+
             weightCap = double.MaxValue;
+            averageError = 0.0;
 
             historyBufferSize = historySize;
-            historyBuffer = new Queue<List<double>>((int)historyBufferSize);
+
+            int historyBufferSizei = (int)historyBufferSize;
+
+            historyBuffer = new Queue<List<double>>(historyBufferSizei);
+
+            errorBuffer = new Queue<double>(historyBufferSizei);
 
             allListGroups = new List<List<NeuronGroup>>();
 
@@ -356,6 +426,45 @@ namespace Raahn
 
                 dataCount -= neuronCount;
             }
+        }
+
+        private void UpdateOnlineError(double currentError)
+        {
+            //Make sure there is at least one error value.
+            if (errorBuffer.Count < 1)
+            {
+                //Just add the new error, nothing else.
+                errorBuffer.Enqueue(currentError);
+                return;
+            }
+
+            //Convert the error count to a double.
+            double errorCount = (double)(errorBuffer.Count);
+
+            //If the error queue is not filled to capacity,
+            //the average has to be calculated by summing up all the errors.
+            if (errorBuffer.Count < historyBufferSize)
+            {
+                double errorSum = 0.0;
+
+                foreach (double error in errorBuffer)
+                    errorSum += error;
+
+                averageError = errorSum / errorCount;
+            }
+            //errorCount does not change. Error can be calculated by removing
+            //the first error and adding the new error, each over errorCount.
+            else
+            {
+                averageError -= errorBuffer.Peek() / errorCount;
+                averageError += currentError / errorCount;
+
+                //Get rid of the old error value.
+                errorBuffer.Dequeue();
+            }
+
+            //Add the new error.
+            errorBuffer.Enqueue(currentError);
         }
 
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.

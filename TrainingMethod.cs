@@ -9,27 +9,28 @@ namespace Raahn
         {
             public const double BIAS_INPUT = 1.0;
 			public const double ERROR_POWER = 2.0;
+            public const double NO_ERROR = 0.0;
             private const double HEBBIAN_SCALE = 2.0;
             //Since sigmoid returns values between 0,1 half
             //the scale will be the distance in both directions.
             private const double HEBBIAN_OFFSET = HEBBIAN_SCALE / 2.0;
 
             //Autoencoder training with tied weights.
-            public static void AutoencoderTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
+            public static double AutoencoderTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
                                                 NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
             {
                 double weightCap = ann.GetWeightCap();
 
                 int reconstructionCount = inGroup.neurons.Count;
 
+                //Plus one for the bias neuron.
                 if (biasWeights != null)
                     reconstructionCount++;
 
-                //Plus one for the bias neuron.
                 double[] reconstructions = new double[reconstructionCount];
                 double[] errors = new double[reconstructionCount];
 
-                //If there is a bias neurons, it's reconstruction and error will be the last value in each.
+                //If there is a bias neuron, it's reconstruction and error will be the last value in each.
                 int biasRecIndex = reconstructions.Length - 1;
 
                 //First sum the weighted values into the reconstructions to store them.
@@ -80,17 +81,24 @@ namespace Raahn
                             biasWeights[i] += weightDelta;
                     }
                 }
+
+                double sumOfSquaredError = 0.0;
+
+                for (int i = 0; i < reconstructionCount; i++)
+                    sumOfSquaredError += Math.Pow(errors[i], ERROR_POWER);
+
+                return (sumOfSquaredError / ERROR_POWER);
             }
 
             //Hebbian learning.
-            public static void HebbianTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
+            public static double HebbianTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
                                             NeuronGroup outGroup, List<Connection> connections, List<double> biasWeights)
             {
                 double modSig = ModulationSignal.GetSignal(modIndex);
 
                 //If the modulation signal is zero there is no weight change.
                 if (modSig == ModulationSignal.NO_MODULATION)
-                    return;
+                    return NO_ERROR;
 
                 double weightCap = ann.GetWeightCap();
 
@@ -99,7 +107,7 @@ namespace Raahn
                     //Normalize to [-1, 1] to allow for positive and negative deltas without modulation.
                     double normalizedInput = inGroup.neurons[(int)connections[i].input];// * HEBBIAN_SCALE - HEBBIAN_OFFSET;
                     double normalizedOutput = outGroup.neurons[(int)connections[i].output] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
-                    double noise = (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
+                    double noise = (NeuralNetwork.rand.NextDouble() * ann.weightNoiseRange) - ann.weightNoiseMagnitude;
 
                     double weightDelta = (modSig * learningRate * normalizedInput * normalizedOutput) + noise;
 
@@ -115,7 +123,7 @@ namespace Raahn
                     for (int i = 0; i < biasWeights.Count; i++)
                     {
                         double normalizedOutput = outGroup.neurons[i] * HEBBIAN_SCALE - HEBBIAN_OFFSET;
-                        double noise = (NeuralNetwork.rand.NextDouble() * ann.noiseMagnitude) + ann.noiseLowerBound;
+                        double noise = (NeuralNetwork.rand.NextDouble() * ann.weightNoiseRange) - ann.weightNoiseMagnitude;
 
                         double weightDelta = (modSig * learningRate * normalizedOutput) + noise;
 
@@ -125,6 +133,8 @@ namespace Raahn
                             biasWeights[i] = Math.Sign(biasWeights[i]) * weightCap;
                     }
                 }
+
+                return NO_ERROR;
             }
         }
     }
