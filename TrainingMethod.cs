@@ -22,13 +22,17 @@ namespace Raahn
                 double weightCap = ann.GetWeightCap();
 
                 int reconstructionCount = inGroup.neurons.Count;
+				int featureCount = outGroup.neurons.Count;
 
                 //Plus one for the bias neuron.
-                if (biasWeights != null)
-                    reconstructionCount++;
+				if (biasWeights != null)
+					reconstructionCount++;
 
                 double[] reconstructions = new double[reconstructionCount];
                 double[] errors = new double[reconstructionCount];
+				double[] deltas = new double[reconstructionCount];
+				//No need to save backprop errors. Regular error is needed for reporting.
+				double[] backPropDeltas = new double[featureCount];
 
                 //If there is a bias neuron, it's reconstruction and error will be the last value in each.
                 int biasRecIndex = reconstructions.Length - 1;
@@ -36,7 +40,7 @@ namespace Raahn
                 //First sum the weighted values into the reconstructions to store them.
                 for (int i = 0; i < connections.Count; i++)
                     reconstructions[(int)connections[i].input] += outGroup.neurons[(int)connections[i].output]
-                    * connections[i].weight;
+                    											* connections[i].weight;
 
                 if (biasWeights != null)
                 {
@@ -51,20 +55,48 @@ namespace Raahn
                 {
                     reconstructions[i] = ann.activation(reconstructions[i]);
                     errors[i] = inGroup.neurons[i] - reconstructions[i];
+					deltas[i] = errors[i] * ann.activationDerivative(reconstructions[i]);
                 }
 
                 if (biasWeights != null)
                 {
                     reconstructions[biasRecIndex] = ann.activation(reconstructions[biasRecIndex]);
                     errors[biasRecIndex] = BIAS_INPUT - reconstructions[biasRecIndex];
+					deltas[biasRecIndex] = errors[biasRecIndex] * ann.activationDerivative(reconstructions[biasRecIndex]);
                 }
+
+				//Now that all the errors are calculated, the backpropagated error can be calculated.
+				//First compute the dot products of each outgoing weight vector and its respective delta.
+				//Go through each connection and add its contribution to its respective dot product.
+				for (int i = 0; i < connections.Count; i++) 
+				{
+					int backPropErrorIndex = (int)connections[i].output;
+					int errorIndex = (int)connections[i].input;
+
+					backPropDeltas[backPropErrorIndex] += deltas[errorIndex] * connections[i].weight;
+				}
+
+				if (biasWeights != null) 
+				{
+					for (int i = 0; i < biasWeights.Count; i++)
+						backPropDeltas[i] += deltas[biasRecIndex] * biasWeights[i];
+				}
+
+				//Now multiply the delta by the derivative of the activation function at the feature neurons.
+				for (int i = 0; i < featureCount; i++)
+					backPropDeltas[i] *= ann.activationDerivative(outGroup.neurons[i]);
 
                 //Update the weights with stochastic gradient descent.
                 for (int i = 0; i < connections.Count; i++)
                 {
-                    double weightDelta = learningRate * errors[(int)connections[i].input]
-                    * ann.activationDerivative(outGroup.neurons[(int)connections[i].output])
-                        * outGroup.neurons[(int)connections[i].output];
+					int inputIndex = (int)connections[i].input;
+					int outputIndex = (int)connections[i].output;
+
+                    double errorWeightDelta = learningRate * deltas[inputIndex] * outGroup.neurons[outputIndex];
+
+					double backPropWeightDelta = learningRate * backPropDeltas[outputIndex] * outGroup.neurons[outputIndex];
+
+					double weightDelta = errorWeightDelta + backPropWeightDelta;
 
                     if (Math.Abs(connections[i].weight + weightDelta) < weightCap)
                         connections[i].weight += weightDelta;
@@ -74,8 +106,11 @@ namespace Raahn
                 {
                     for (int i = 0; i < biasWeights.Count; i++)
                     {
-                        double weightDelta = learningRate * errors[biasRecIndex]
-                        * ann.activationDerivative(outGroup.neurons[i]) * outGroup.neurons[i];
+                        double errorWeightDelta = learningRate * deltas[biasRecIndex] * outGroup.neurons[i];
+
+						double backPropWeightDelta = learningRate * backPropDeltas[i] * outGroup.neurons[i];
+
+						double weightDelta = errorWeightDelta + backPropWeightDelta;
 
                         if (Math.Abs(biasWeights[i] + weightDelta) < weightCap)
                             biasWeights[i] += weightDelta;

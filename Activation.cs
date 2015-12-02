@@ -9,10 +9,10 @@ namespace Raahn
             return 1.0 / (1.0 + Math.Exp(-x));
         }
 
+		//Takes the already computed value of sigmoid.
         public static double LogisticDerivative(double x)
         {
-            double l = Logistic(x);
-            return l * (1.0 - l);
+            return x * (1.0 - x);
         }
     }
 }
