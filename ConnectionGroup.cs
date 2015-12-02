@@ -144,6 +144,12 @@ namespace Raahn
             {
                 for (int i = 0; i < connections.Count; i++)
                     connections[i].weight = rand.NextDouble();
+
+                if (biasWeights != null)
+                {
+                    for (int i = 0; i < biasWeights.Count; i++)
+                        biasWeights[i] = rand.NextDouble();
+                }
             }
 
             public int GetInputGroupIndex()
