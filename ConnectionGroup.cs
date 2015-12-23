@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 
 namespace Raahn
@@ -31,8 +32,8 @@ namespace Raahn
             public const double DEFAULT_LEARNING_RATE = 0.1;
 
             public delegate double TrainFunctionType(int modIndex, double learningRate, NeuralNetwork ann, 
-                                                   NeuronGroup inGroup, NeuronGroup outGroup, 
-                                                   List<Connection> connections, List<double> biasWeights);
+			                                         NeuronGroup inGroup, NeuronGroup outGroup, 
+			                                         List<Connection> connections, List<double> biasWeights);
 
             public uint sampleUsageCount;
             private int modSigIndex;
@@ -81,17 +82,16 @@ namespace Raahn
                 if (biasWeights == null)
                     return;
 
-                for (uint i = 0; i < outputCount; i++)
-                    biasWeights.Add(NeuralNetwork.rand.NextDouble());
-            }
+				double neuronInOutCount = (double)(inputGroup.neurons.Count + outputGroup.neurons.Count + 1);
 
-            public void AddBiasWeights(uint outputCount, double weight)
-            {
-                if (biasWeights == null)
-                    return;
+				for (uint i = 0; i < outputCount; i++)
+				{
+					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
+					//Keep in the range of [-range, range]
+					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
 
-                for (uint i = 0; i < outputCount; i++)
-                    biasWeights.Add(weight);
+					biasWeights.Add(weight);
+				}
             }
 
             public void PropagateSignal()
@@ -112,6 +112,12 @@ namespace Raahn
                         outputGroup.neurons[i] += biasWeights[i];
                 }
             }
+
+			public void UpdateAverages()
+			{
+				if (trainingMethod == TrainingMethod.SparseAutoencoderTrain)
+					outputGroup.UpdateAverages();
+			}
 
             public void SetModulationIndex(int index)
             {
@@ -140,15 +146,66 @@ namespace Raahn
                 }
             }
 
-            public void ResetWeights()
+			public void SaveWeights()
             {
+                StreamWriter writer = new StreamWriter("weights.txt");
+
+                List<List<double>> weights = new List<List<double>>(inputGroup.neurons.Count);
+
+                for (int x = 0; x < inputGroup.neurons.Count; x++)
+                {
+                    List<double> newList = new List<double>(outputGroup.neurons.Count);
+
+                    for (int y = 0; y < outputGroup.neurons.Count; y++)
+                        newList.Add(0.0);
+
+                    weights.Add(newList);
+                }
+
                 for (int i = 0; i < connections.Count; i++)
-                    connections[i].weight = rand.NextDouble();
+                    weights[(int)connections[i].input][(int)connections[i].output] = connections[i].weight;
+
+                for (int x = 0; x < inputGroup.neurons.Count; x++)
+                {
+                    for (int y = 0; y < outputGroup.neurons.Count; y++)
+                        writer.WriteLine(weights[x][y]);
+                }
 
                 if (biasWeights != null)
                 {
                     for (int i = 0; i < biasWeights.Count; i++)
-                        biasWeights[i] = rand.NextDouble();
+                        writer.WriteLine(biasWeights[i]);
+                }
+
+				writer.Close();
+            }
+
+            public void ResetWeights()
+            {
+				double neuronInOutCount = (double)(inputGroup.neurons.Count + outputGroup.neurons.Count);
+
+				if (biasWeights != null)
+					neuronInOutCount++;
+
+				for (int i = 0; i < connections.Count; i++)
+				{
+					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
+					//Keep in the range of [-range, range]
+					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
+
+					connections[i].weight = weight;
+				}
+
+                if (biasWeights != null)
+                {
+					for (int i = 0; i < biasWeights.Count; i++)
+					{
+						double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
+						//Keep in the range of [-range, range]
+						double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
+
+						biasWeights[i] = weight;
+					}
                 }
             }
 
@@ -170,7 +227,7 @@ namespace Raahn
 			public double GetReconstructionError()
 			{
 				//If a autoencoder training was not used there is no reconstruction error.
-				if (trainingMethod != TrainingMethod.AutoencoderTrain)
+				if (trainingMethod == TrainingMethod.HebbianTrain)
 					return 0.0;
 
 				int reconstructionCount = inputGroup.neurons.Count;

@@ -11,6 +11,8 @@ namespace Raahn
         public const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
         private const double DEFAULT_NOISE_MAGNITUDE = 1.0;
         private const double DOUBLE_MAGNITUDE = 2.0;
+		private const double WEIGHT_RANGE_SCALE = 6.0;
+		private const double DOUBLE_WEIGHT_RANGE = 2.0;
 
         public static readonly Random rand = new Random();
 
@@ -69,6 +71,14 @@ namespace Raahn
 
             SetSample(newSample);
         }
+
+		public void SetSample(uint index)
+		{
+			if (index >= historyBuffer.Count)
+				return;
+
+			SetSample(historyBuffer.ElementAt((int)index));
+		}
 
         //Propagates the inputs completely and gets output.
         public void PropagateSignal()
@@ -163,6 +173,15 @@ namespace Raahn
             weightNoiseRange = weightNoiseMag * DOUBLE_MAGNITUDE;
         }
 
+		public void SaveWeights()
+        {
+            for (int x = 0; x < allListGroups.Count; x++)
+            {
+                for (int y = 0; y < allListGroups[x].Count; y++)
+                    allListGroups[x][y].SaveWeights();
+            }
+        }
+
         //Returns whether the output was able to be set.
         public bool SetOutput(uint groupIndex, uint index, double value)
         {
@@ -198,11 +217,22 @@ namespace Raahn
             cGroup.SetTrainingMethod(trainMethod);
             cGroup.SetModulationIndex(modulationIndex);
 
+			double neuronInOutCount = (double)(iGroup.neurons.Count + oGroup.neurons.Count);
+
+			if (useBias)
+				neuronInOutCount++;
+
             for (uint x = 0; x < iGroup.neurons.Count; x++)
             {
-                //Weights randomized between 0.0 and 1.0.
-                for (uint y = 0; y < oGroup.neurons.Count; y++)
-                    cGroup.AddConnection(x, y, rand.NextDouble());
+                //Randomize weights.
+				for (uint y = 0; y < oGroup.neurons.Count; y++)
+				{
+					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
+					//Keep in the range of [-range, range]
+					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
+
+					cGroup.AddConnection(x, y, weight);
+				}
             }
 
             if (useBias)

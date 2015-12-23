@@ -23,12 +23,14 @@ namespace Raahn
             }
 
             public const int INVALID_NEURON_INDEX = -1;
-            private const double NEURON_DEFAULT_VALUE = 0.0;
+            private const double DEFAULT_NEURON_VALUE = 0.0;
+			private const double DECAY_BASE = 0.01;
 
             public int index;
             public bool computed;
             public NeuronGroup.Type type;
             public List<double> neurons;
+			public List<double> averages;
             private bool useNoise;
             private List<ConnectionGroup> incomingGroups;
             //All outgoing groups.
@@ -55,6 +57,8 @@ namespace Raahn
             {
                 ann = network;
 
+				averages = null;
+
                 computed = true;
 
                 useNoise = false;
@@ -70,18 +74,32 @@ namespace Raahn
             public void AddNeurons(uint count)
             {
                 for (uint i = 0; i < count; i++)
-                    neurons.Add(NEURON_DEFAULT_VALUE);
+                    neurons.Add(DEFAULT_NEURON_VALUE);
             }
 
             public void AddIncomingGroup(ConnectionGroup incomingGroup)
             {
                 incomingGroups.Add(incomingGroup);
 
+				ConnectionGroup.TrainFunctionType method = incomingGroup.GetTrainingMethod();
+
                 //Noise must be used for Hebbian trained connection groups.
                 //Noise is added after the activation function, so it has to
                 //be addded if there is at least one Hebbain trained connection group.
-                if (incomingGroup.GetTrainingMethod() == TrainingMethod.HebbianTrain)
-                    useNoise = true;
+				if (method == TrainingMethod.HebbianTrain)
+					useNoise = true;
+				else if (method == TrainingMethod.SparseAutoencoderTrain) 
+				{
+					if (averages == null) 
+					{
+						int featureCount = neurons.Count;
+
+						averages = new List<double>(featureCount);
+
+						for (int i = 0; i < featureCount; i++)
+							averages.Add(DEFAULT_NEURON_VALUE);
+					}
+				}
             }
 
             //mostRecent refers to whether the group should train off of only the most recent experience.
@@ -95,6 +113,17 @@ namespace Raahn
                 else
                     outTrainSeveral.Add(outgoingGroup);
             }
+
+			public void UpdateAverages()
+			{
+				double decay = 0.0;
+				double exponent = 1.0 / (double)ann.historyBuffer.Count;
+
+				decay = Math.Pow(DECAY_BASE, exponent);
+
+				for (int i = 0; i < averages.Count; i++)
+					averages[i] = (decay * averages[i]) + ((1.0 - decay) * neurons[i]);
+			}
 
             public void Reset()
             {
@@ -133,6 +162,13 @@ namespace Raahn
                 computed = true;
             }
 
+
+			public void SaveWeights()
+            {
+                for (int i = 0; i < outgoingGroups.Count; i++)
+                    outgoingGroups[i].SaveWeights();
+            }
+
             //Train groups which use the most recent experience.
             public double TrainRecent()
             {
@@ -141,8 +177,13 @@ namespace Raahn
 
                 double error = 0.0;
 
-                for (int i = 0; i < outTrainRecent.Count; i++)
-                    error += outTrainRecent[i].Train();
+				for (int i = 0; i < outTrainRecent.Count; i++) 
+				{
+					if (outTrainRecent[i].GetTrainingMethod() == TrainingMethod.SparseAutoencoderTrain)
+						UpdateAverages();
+
+					error += outTrainRecent[i].Train();
+				}
 
                 return error;
             }
@@ -177,6 +218,8 @@ namespace Raahn
 
                         ann.SetSample(sample);
                         ann.PropagateSignal();
+
+						outTrainSeveral[i].UpdateAverages();
 
                         error += outTrainSeveral[i].Train();
                     }
