@@ -106,11 +106,11 @@ namespace Raahn
             for (int i = 0; i < inputGroups.Count; i++)
                 error += inputGroups[i].TrainRecent();
 
-            for (int i = 0; i < inputGroups.Count; i++)
-                error += inputGroups[i].TrainSeveral();
-
             for (int i = 0; i < hiddenGroups.Count; i++)
                 error += hiddenGroups[i].TrainRecent();
+
+            for (int i = 0; i < inputGroups.Count; i++)
+                error += inputGroups[i].TrainSeveral();
 
             for (int i = 0; i < hiddenGroups.Count; i++)
                 error += hiddenGroups[i].TrainSeveral();
