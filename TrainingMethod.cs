@@ -14,8 +14,8 @@ namespace Raahn
             //Since sigmoid returns values between 0.1 half
             //the scale will be the distance in both directions.
             private const double HEBBIAN_OFFSET = HEBBIAN_SCALE / 2.0;
-			private const double SPARSITY_PARAMETER = 0.1;
-			private const double SPARSITY_WEIGHT = 1.0;
+			private const double SPARSITY_PARAMETER = 1.0;
+			private const double SPARSITY_WEIGHT = 0.1;
 
             //Autoencoder training with tied weights.
             public static double AutoencoderTrain(int modIndex, double learningRate, NeuralNetwork ann, NeuronGroup inGroup, 
@@ -202,8 +202,8 @@ namespace Raahn
 					double oneMinusParamOverOneMinusReconst = (1.0 - SPARSITY_PARAMETER) / (1.0 - outGroup.averages[i]);
 					double sparsityTerm = SPARSITY_WEIGHT * (oneMinusParamOverOneMinusReconst - paramOverReconst);
 
-					backPropDeltas[i] -= sparsityTerm;
 					backPropDeltas[i] *= ann.activationDerivative(outGroup.neurons[i]);
+                    backPropDeltas[i] -= sparsityTerm;
 				}
 
 				//Update the weights with stochastic gradient descent.

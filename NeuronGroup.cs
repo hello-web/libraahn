@@ -196,14 +196,27 @@ namespace Raahn
 
                 double error = 0.0;
 
-                uint historyBufferCount = (uint)ann.historyBuffer.Count;
+                uint historyBufferCount = 0;
+
+                if (ann.useNovelty)
+                    historyBufferCount = (uint)ann.noveltyBuffer.Count;
+                else
+                    historyBufferCount = (uint)ann.historyBuffer.Count;
 
                 LinkedList<List<double>> samples = new LinkedList<List<double>>();
 
                 for (int i = 0; i < outTrainSeveral.Count; i++)
                 {
-                    foreach (List<double> sample in ann.historyBuffer)
-                        samples.AddLast(sample);
+                    if (ann.useNovelty)
+                    {
+                        foreach (List<double> sample in ann.noveltyBuffer)
+                            samples.AddLast(sample);
+                    }
+                    else
+                    {
+                        foreach (List<double> sample in ann.historyBuffer)
+                            samples.AddLast(sample);
+                    }
 
                     uint sampleCount = outTrainSeveral[i].sampleUsageCount;
 

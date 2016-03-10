@@ -9,13 +9,17 @@ namespace Raahn
         public delegate double ActivationFunctionType(double x);
 
         public const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
+        private const bool DEFAULT_NOVELTY_USE = false;
+        //Number of nearest neighbors to use for novelty score calculations.
+        private const uint N_NEAREST = 20;
         private const double DEFAULT_NOISE_MAGNITUDE = 1.0;
         private const double DOUBLE_MAGNITUDE = 2.0;
-		private const double WEIGHT_RANGE_SCALE = 6.0;
-		private const double DOUBLE_WEIGHT_RANGE = 2.0;
+        private const double WEIGHT_RANGE_SCALE = 6.0;
+        private const double DOUBLE_WEIGHT_RANGE = 2.0;
 
         public static readonly Random rand = new Random();
 
+        public bool useNovelty;
         //Default to using the logistic function.
         public ActivationFunctionType activation = Activation.Logistic;
         public ActivationFunctionType activationDerivative = Activation.LogisticDerivative;
@@ -23,53 +27,82 @@ namespace Raahn
         private double weightCap;
         private double outputNoiseMagnitude;
         private double weightNoiseMagnitude;
+        private double leastNovelScore;
         //Difference between max and min noise values.
         private double outputNoiseRange;
         private double weightNoiseRange;
         private double averageError;
-        private Queue<List<double>> historyBuffer;
+        private List<double> leastNovelSample;
+        private List<double> noveltyScores;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
         private List<NeuronGroup> outputGroups;
+        private LinkedList<List<double>> noveltyBuffer;
         private Queue<double> errorBuffer;
+        private Queue<List<double>> historyBuffer;
 
         public NeuralNetwork()
         {
-            Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
+            Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOVELTY_USE);
         }
 
-        public NeuralNetwork(uint historySize)
+        public NeuralNetwork(uint historySize, bool useNoveltyBuffer)
         {
             if (historySize > 0)
-                Construct(historySize, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
+                Construct(historySize, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE, useNoveltyBuffer);
             else
-                Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE);
+                Construct(DEFAULT_HISTORY_BUFFER_SIZE, DEFAULT_NOISE_MAGNITUDE, DEFAULT_NOISE_MAGNITUDE, useNoveltyBuffer);
         }
 
         public NeuralNetwork(double outputNoiseMag, double weightNoiseMag)
         {
-            Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag);
+            Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag, DEFAULT_NOVELTY_USE);
         }
 
-        public NeuralNetwork(uint historySize, double outputNoiseMag, double weightNoiseMag)
+        public NeuralNetwork(uint historySize, double outputNoiseMag, double weightNoiseMag, bool useNoveltyBuffer)
         {
             if (historySize > 0)
-                Construct(historySize, outputNoiseMag, weightNoiseMag);
+                Construct(historySize, outputNoiseMag, weightNoiseMag, useNoveltyBuffer);
             else
-                Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag);
+                Construct(DEFAULT_HISTORY_BUFFER_SIZE, outputNoiseMag, weightNoiseMag, useNoveltyBuffer);
         }
 
         //Adds a training sample to the history buffer.
         public void AddSample(List<double> newSample)
         {
-            //If the buffer is full, pop the back and add the new sample.
-            if (historyBuffer.Count == historyBufferSize)
-                historyBuffer.Dequeue();
+            if (useNovelty)
+            {
+                if (noveltyBuffer.Count == historyBufferSize)
+                {
+                    if (NoveltyScore(newSample) > leastNovelScore)
+                    {
+                        noveltyBuffer.Remove(leastNovelSample);
+                        noveltyBuffer.AddLast(newSample);
 
-            historyBuffer.Enqueue(newSample);
+                        CalculateNoveltyScores();
+                    }
+                }
+                else
+                {
+                    noveltyBuffer.AddLast(newSample);
 
-            SetSample(newSample);
+                    if (noveltyBuffer.Count == historyBufferSize)
+                        CalculateNoveltyScores();
+                }
+                
+                SetSample(newSample);
+            }
+            else
+            {
+                //If the buffer is full, pop the back and add the new sample.
+                if (historyBuffer.Count == historyBufferSize)
+                    historyBuffer.Dequeue();
+
+                historyBuffer.Enqueue(newSample);
+
+                SetSample(newSample);
+            }
         }
 
 		public void SetSample(uint index)
@@ -149,7 +182,11 @@ namespace Raahn
                 }
             }
 
-            historyBuffer.Clear();
+            if (useNovelty)
+                noveltyBuffer.Clear();
+            else
+                historyBuffer.Clear();
+
             errorBuffer.Clear();
 
             averageError = 0.0;
@@ -403,8 +440,12 @@ namespace Raahn
             return allListGroups[(int)connectedTo.type][connectedTo.index].GetGroupsConnected();
         }
 
-        private void Construct(uint historySize, double outputNoiseMag, double weightNoiseMag)
+        private void Construct(uint historySize, double outputNoiseMag, double weightNoiseMag, bool useNoveltyBuffer)
         {
+            useNovelty = useNoveltyBuffer;
+
+            historyBufferSize = historySize;
+
             outputNoiseMagnitude = outputNoiseMag;
             weightNoiseMagnitude = weightNoiseMag;
             outputNoiseRange = outputNoiseMagnitude * DOUBLE_MAGNITUDE;
@@ -412,12 +453,23 @@ namespace Raahn
 
             weightCap = double.MaxValue;
             averageError = 0.0;
+            leastNovelScore = 0.0;
 
-            historyBufferSize = historySize;
+            leastNovelSample = null;
 
             int historyBufferSizei = (int)historyBufferSize;
 
-            historyBuffer = new Queue<List<double>>(historyBufferSizei);
+            if (useNovelty)
+            {
+                noveltyScores = new List<double>(historyBufferSizei);
+
+                for (int i = 0; i < historyBufferSizei; i++)
+                    noveltyScores.Add(0.0);
+
+                noveltyBuffer = new LinkedList<List<double>>();
+            }
+            else
+                historyBuffer = new Queue<List<double>>(historyBufferSizei);
 
             errorBuffer = new Queue<double>(historyBufferSizei);
 
@@ -497,6 +549,33 @@ namespace Raahn
             errorBuffer.Enqueue(currentError);
         }
 
+        private void CalculateNoveltyScores()
+        {
+            List<double> leastNovel = noveltyBuffer.First.Value;
+            double leastScore = NoveltyScore(leastNovel);
+
+            noveltyScores[0] = leastScore;
+            int index = 1;
+
+            for (LinkedListNode<List<double>> it = noveltyBuffer.First.Next; it != null; it = it.Next)
+            {
+                List<double> currentSample = it.Value;
+                double noveltyScore = NoveltyScore(currentSample);
+
+                if (noveltyScore < leastScore)
+                {
+                    leastNovel = currentSample;
+                    leastScore = noveltyScore;
+                }
+
+                noveltyScores[index] = noveltyScore;
+                index++;
+            }
+
+            leastNovelSample = leastNovel;
+            leastNovelScore = leastScore;
+        }
+
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.
         private bool VerifyType(NeuronGroup.Type type)
         {
@@ -518,6 +597,38 @@ namespace Raahn
                 return false;
 
             return true;
+        }
+
+        private double SampleDistance(List<double> sample, List<double> compare)
+        {
+            double sum = 0.0;
+
+            for (int i = 0; i < sample.Count; i++)
+                sum += Math.Pow(sample[i] - compare[i], 2.0);
+
+            return Math.Sqrt(sum);
+        }
+
+        private double NoveltyScore(List<double> sample)
+        {
+            double sum = 0.0;
+
+            List<double> distances = new List<double>(noveltyBuffer.Count - 1);
+
+            for (LinkedListNode<List<double>> it = noveltyBuffer.First; it != null; it = it.Next)
+            {
+                List<double> currentSample = it.Value;
+
+                if (sample != currentSample)
+                    distances.Add(SampleDistance(sample, currentSample));
+            }
+
+            distances.Sort();
+
+            for (int i = 0; i < N_NEAREST; i++)
+                sum += distances[i];
+
+            return sum;
         }
     }
 }
