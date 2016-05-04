@@ -6,12 +6,70 @@ namespace Raahn
 {
     public partial class NeuralNetwork
     {
+        //Description of a distance between two novelty buffer occupants.
+        private class DistanceDescription : IComparable<DistanceDescription>
+        {
+            public double distance;
+            public NoveltyBufferOccupant distanceOwner;
+
+            public DistanceDescription()
+            {
+                distance = 0.0;
+                distanceOwner = null;
+            }
+
+            //Sort DistanceDescription by distance.
+            public int CompareTo(DistanceDescription cmp)
+            {
+                if (cmp == null)
+                    return 1;
+                if (distance > cmp.distance)
+                    return 1;
+                if (distance < cmp.distance)
+                    return -1;
+
+                return 0;
+            }
+        }
+
+        private class NoveltyBufferOccupant : IComparable<NoveltyBufferOccupant>
+        {
+            public double noveltyScore;
+            public List<double> experience;
+            //Ordered from nearest to farthest.
+            public LinkedList<DistanceDescription> distanceDescriptions;
+
+            public NoveltyBufferOccupant()
+            {
+                noveltyScore = 0.0;
+
+                experience = null;
+                distanceDescriptions = new LinkedList<DistanceDescription>();
+            }
+
+            //Sort NoveltyBufferOccupant by noveltyScore.
+            public int CompareTo(NoveltyBufferOccupant cmp)
+            {
+                if (cmp == null)
+                    return 1;
+                if (noveltyScore > cmp.noveltyScore)
+                    return 1;
+                if (noveltyScore < cmp.noveltyScore)
+                    return -1;
+
+                return 0;
+            }
+        }
+
         public delegate double ActivationFunctionType(double x);
 
         public const uint DEFAULT_HISTORY_BUFFER_SIZE = 1;
+        //Whether or not to use a novelty buffer.
         private const bool DEFAULT_NOVELTY_USE = false;
         //Number of nearest neighbors to use for novelty score calculations.
         private const uint N_NEAREST = 20;
+        //How many distances to keep for each experience.
+        private const uint N_KEEP = N_NEAREST + 20;
         private const double DEFAULT_NOISE_MAGNITUDE = 1.0;
         private const double DOUBLE_MAGNITUDE = 2.0;
         private const double WEIGHT_RANGE_SCALE = 6.0;
@@ -27,18 +85,16 @@ namespace Raahn
         private double weightCap;
         private double outputNoiseMagnitude;
         private double weightNoiseMagnitude;
-        private double leastNovelScore;
         //Difference between max and min noise values.
         private double outputNoiseRange;
         private double weightNoiseRange;
         private double averageError;
-        private List<double> leastNovelSample;
-        private List<double> noveltyScores;
         private List<List<NeuronGroup>> allListGroups;
         private List<NeuronGroup> inputGroups;
         private List<NeuronGroup> hiddenGroups;
         private List<NeuronGroup> outputGroups;
-        private LinkedList<List<double>> noveltyBuffer;
+        //Ordered from least novel to most novel.
+        private List<NoveltyBufferOccupant> noveltyBuffer;
         private Queue<double> errorBuffer;
         private Queue<List<double>> historyBuffer;
 
@@ -69,49 +125,68 @@ namespace Raahn
         }
 
         //Adds a training sample to the history buffer.
-        public void AddSample(List<double> newSample)
+        public void AddExperience(List<double> newExperience)
         {
+            //Check which buffer to use.
             if (useNovelty)
             {
+                //Allocate a NoveltyBufferOccupant for the new experience.
+                NoveltyBufferOccupant newOccupant = new NoveltyBufferOccupant();
+                newOccupant.experience = newExperience;
+                List<DistanceDescription> newDistances = ComputeNewDistances(newOccupant);
+
+                //Check if the buffer is at capacity.
                 if (noveltyBuffer.Count == historyBufferSize)
                 {
-                    if (NoveltyScore(newSample) > leastNovelScore)
-                    {
-                        noveltyBuffer.Remove(leastNovelSample);
-                        noveltyBuffer.AddLast(newSample);
+                    NoveltyBufferOccupant leastNovel = noveltyBuffer[0];
 
-                        CalculateNoveltyScores();
+                    //If the new experience is more novel than the least novel
+                    //then remove the least novel than add the new experience.
+                    if (newOccupant.noveltyScore > leastNovel.noveltyScore)
+                    {
+                        RemoveNoveltyOccupant(leastNovel);
+                        //Add the new experience taking into account its newly introduced distances.
+                        AddNoveltyOccupant(newOccupant, newDistances);
                     }
                 }
+                //Buffer not at capacity, just add the new experience.
                 else
-                {
-                    noveltyBuffer.AddLast(newSample);
-
-                    if (noveltyBuffer.Count == historyBufferSize)
-                        CalculateNoveltyScores();
-                }
-                
-                SetSample(newSample);
+                    AddNoveltyOccupant(newOccupant, newDistances);
             }
             else
             {
-                //If the buffer is full, pop the back and add the new sample.
+                //If the buffer is full, pop the back to make room for the new experience.
                 if (historyBuffer.Count == historyBufferSize)
                     historyBuffer.Dequeue();
 
-                historyBuffer.Enqueue(newSample);
-
-                SetSample(newSample);
+                //Add the new experience.
+                historyBuffer.Enqueue(newExperience);
             }
+
+            SetExperience(newExperience);
         }
 
-		public void SetSample(uint index)
-		{
-			if (index >= historyBuffer.Count)
-				return;
+        //Public access for setting an experience.
+        public void SetExperience(uint index)
+        {
+            //Check which buffer to use.
+            if (useNovelty)
+            {
+                //Make sure the index is in the bounds of the novelty buffer.
+                if (index >= noveltyBuffer.Count)
+                    return;
 
-			SetSample(historyBuffer.ElementAt((int)index));
-		}
+                SetExperience(noveltyBuffer[(int)index].experience);
+            }
+            else
+            {
+                //Make sure the index is in the bounds of the history buffer.
+                if (index >= historyBuffer.Count)
+                    return;
+
+                SetExperience(historyBuffer.ElementAt((int)index));
+            }
+        }
 
         //Propagates the inputs completely and gets output.
         public void PropagateSignal()
@@ -149,25 +224,6 @@ namespace Raahn
                 error += hiddenGroups[i].TrainSeveral();
 
             UpdateOnlineError(error);
-        }
-
-        public void DisplayWeights()
-        {
-            Console.WriteLine("Displaying outgoing weights.\n");
-
-            //Display outgoing connections from input groups.
-            for (int x = 0; x < allListGroups[0].Count; x++)
-            {
-                Console.WriteLine("Displaying weights for input group {0}", x);
-                allListGroups[0][x].DisplayOutgoingWeights();
-            }
-
-            //Display outgoing connections from hidden groups.
-            for (int x = 0; x < allListGroups[1].Count; x++)
-            {
-                Console.WriteLine("Displaying weights for output group {0}:", x);
-                allListGroups[1][x].DisplayOutgoingWeights();
-            }
         }
 
         //Resets the weights and every neuron of the neural network.
@@ -210,15 +266,6 @@ namespace Raahn
             weightNoiseRange = weightNoiseMag * DOUBLE_MAGNITUDE;
         }
 
-		public void SaveWeights()
-        {
-            for (int x = 0; x < allListGroups.Count; x++)
-            {
-                for (int y = 0; y < allListGroups[x].Count; y++)
-                    allListGroups[x][y].SaveWeights();
-            }
-        }
-
         //Returns whether the output was able to be set.
         public bool SetOutput(uint groupIndex, uint index, double value)
         {
@@ -254,22 +301,22 @@ namespace Raahn
             cGroup.SetTrainingMethod(trainMethod);
             cGroup.SetModulationIndex(modulationIndex);
 
-			double neuronInOutCount = (double)(iGroup.neurons.Count + oGroup.neurons.Count);
+            double neuronInOutCount = (double)(iGroup.neurons.Count + oGroup.neurons.Count);
 
-			if (useBias)
-				neuronInOutCount++;
+            if (useBias)
+                neuronInOutCount++;
 
             for (uint x = 0; x < iGroup.neurons.Count; x++)
             {
                 //Randomize weights.
-				for (uint y = 0; y < oGroup.neurons.Count; y++)
-				{
-					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
-					//Keep in the range of [-range, range]
-					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
+                for (uint y = 0; y < oGroup.neurons.Count; y++)
+                {
+                    double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
+                    //Keep in the range of [-range, range]
+                    double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
 
-					cGroup.AddConnection(x, y, weight);
-				}
+                    cGroup.AddConnection(x, y, weight);
+                }
             }
 
             if (useBias)
@@ -369,38 +416,38 @@ namespace Raahn
             return outputGroups[(int)groupIndex].neurons[(int)index];
         }
 
-		//Returns the sum of the squared reconstruction error for the current sample.
-		public double CalculateBatchError()
-		{
-			PropagateSignal();
+        //Returns the sum of the squared reconstruction error for the current sample.
+        public double CalculateBatchError()
+        {
+            PropagateSignal();
 
-			double error = 0.0;
+            double error = 0.0;
 
-			for (int i = 0; i < inputGroups.Count; i++)
-				error += inputGroups[i].GetReconstructionError();
+            for (int i = 0; i < inputGroups.Count; i++)
+                error += inputGroups[i].GetReconstructionError();
 
-			for (int i = 0; i < hiddenGroups.Count; i++)
-				error += hiddenGroups[i].GetReconstructionError();
+            for (int i = 0; i < hiddenGroups.Count; i++)
+                error += hiddenGroups[i].GetReconstructionError();
 
-			return error;
-		}
+            return error;
+        }
 
-		//Returns the average reconstruction error for the entire history buffer.
-		public double GetBatchError()
-		{
-			double error = 0.0;
+        //Returns the average reconstruction error for the entire history buffer.
+        public double GetBatchError()
+        {
+            double error = 0.0;
 
-			foreach (List<double> sample in historyBuffer) 
-			{
-				SetSample(sample);
+            foreach (List<double> sample in historyBuffer) 
+            {
+                SetExperience(sample);
 
-				error += CalculateBatchError();
-			}
+                error += CalculateBatchError();
+            }
 
-			error /= historyBuffer.Count;
+            error /= historyBuffer.Count;
 
-			return error;
-		}
+            return error;
+        }
 
         //Returns the average reconstruction error over the past [historyBufferSize] ticks.
         public double GetOnlineError()
@@ -440,6 +487,7 @@ namespace Raahn
             return allListGroups[(int)connectedTo.type][connectedTo.index].GetGroupsConnected();
         }
 
+        //Constructs NeuralNetwork.
         private void Construct(uint historySize, double outputNoiseMag, double weightNoiseMag, bool useNoveltyBuffer)
         {
             useNovelty = useNoveltyBuffer;
@@ -453,21 +501,11 @@ namespace Raahn
 
             weightCap = double.MaxValue;
             averageError = 0.0;
-            leastNovelScore = 0.0;
-
-            leastNovelSample = null;
 
             int historyBufferSizei = (int)historyBufferSize;
 
             if (useNovelty)
-            {
-                noveltyScores = new List<double>(historyBufferSizei);
-
-                for (int i = 0; i < historyBufferSizei; i++)
-                    noveltyScores.Add(0.0);
-
-                noveltyBuffer = new LinkedList<List<double>>();
-            }
+                noveltyBuffer = new List<NoveltyBufferOccupant>(historyBufferSizei);
             else
                 historyBuffer = new Queue<List<double>>(historyBufferSizei);
 
@@ -484,7 +522,8 @@ namespace Raahn
             allListGroups.Add(outputGroups);
         }
 
-        private void SetSample(List<double> sample)
+        //Set the inputs of the neural network to a given experience.
+        private void SetExperience(List<double> sample)
         {
             int dataCount = sample.Count;
             int sampleIndex = 0;
@@ -549,31 +588,132 @@ namespace Raahn
             errorBuffer.Enqueue(currentError);
         }
 
-        private void CalculateNoveltyScores()
+        //Add a new experience to the novelty buffer.
+        private void AddNoveltyOccupant(NoveltyBufferOccupant newOccupant, List<DistanceDescription> distDescriptions)
         {
-            List<double> leastNovel = noveltyBuffer.First.Value;
-            double leastScore = NoveltyScore(leastNovel);
-
-            noveltyScores[0] = leastScore;
-            int index = 1;
-
-            for (LinkedListNode<List<double>> it = noveltyBuffer.First.Next; it != null; it = it.Next)
+            //Add the distance for the new occupant to each other and to itself if needed.
+            for (int i = 0; i < noveltyBuffer.Count; i++)
             {
-                List<double> currentSample = it.Value;
-                double noveltyScore = NoveltyScore(currentSample);
+                DistanceDescription newDes = new DistanceDescription();
+                newDes.distance = distDescriptions[i].distance;
+                newDes.distanceOwner = newOccupant;
 
-                if (noveltyScore < leastScore)
-                {
-                    leastNovel = currentSample;
-                    leastScore = noveltyScore;
-                }
-
-                noveltyScores[index] = noveltyScore;
-                index++;
+                TryInsertDistance(noveltyBuffer[i], newDes);
             }
 
-            leastNovelSample = leastNovel;
-            leastNovelScore = leastScore;
+            noveltyBuffer.Add(newOccupant);
+
+            UpdateNoveltyScores();
+            noveltyBuffer.Sort();
+        }
+
+        //Insert the distance if it is closer than the current farthest distance.
+        private void TryInsertDistance(NoveltyBufferOccupant occupant, DistanceDescription distDesc)
+        {
+            //Only check if a distance cache removal is needed if the distance cache is full.
+            if (occupant.distanceDescriptions.Count >= N_NEAREST)
+            {
+                //Don't insert the distance if it is farther than the current farthest distance.
+                if (distDesc.distance > occupant.distanceDescriptions.Last.Value.distance)
+                    return;
+
+                //Check if the distance cache is full. Make room for the new distance.
+                if (occupant.distanceDescriptions.Count == N_KEEP)
+                    occupant.distanceDescriptions.RemoveLast();
+            }
+
+            //Insert the distance into the sorted distance list of the occupant.
+            for (LinkedListNode<DistanceDescription> it = occupant.distanceDescriptions.Last; it != null; it = it.Previous)
+            {
+                //Check where the new distance should be placed.
+                if (distDesc.distance > it.Value.distance)
+                {
+                    occupant.distanceDescriptions.AddAfter(it, distDesc);
+                    return;
+                }
+            }
+
+            //The new distance is the new nearest.
+            occupant.distanceDescriptions.AddFirst(distDesc);
+        }
+
+        //Remove an experience from the novelty buffer.
+        private void RemoveNoveltyOccupant(NoveltyBufferOccupant oldOccupant)
+        {
+            noveltyBuffer.Remove(oldOccupant);
+
+            foreach (NoveltyBufferOccupant occupant in noveltyBuffer)
+            {
+                for (LinkedListNode<DistanceDescription> it = occupant.distanceDescriptions.First; it != null; it = it.Next)
+                {
+                    //Remove the distance if it is the distance to the removed occupant.
+                    if (it.Value.distanceOwner.Equals(oldOccupant))
+                    {
+                        occupant.distanceDescriptions.Remove(it);
+                        break;
+                    }
+                }
+
+                //Recompute novelty scores for the occupant if it the novelty buffer 
+                //has experiences that can fill the rest of the occupant's nearest distances.
+                if (noveltyBuffer.Count > N_KEEP && occupant.distanceDescriptions.Count < N_NEAREST)
+                    ComputeDistances(occupant);
+            }
+        }
+
+        private void UpdateNoveltyScores()
+        {
+            foreach (NoveltyBufferOccupant occupant in noveltyBuffer)
+            {
+                int distancesToSum = occupant.distanceDescriptions.Count;
+
+                if (distancesToSum > N_NEAREST)
+                    distancesToSum = (int)N_NEAREST;
+
+                occupant.noveltyScore = 0.0;
+
+                LinkedListNode<DistanceDescription> distanceIterator = occupant.distanceDescriptions.First;
+
+                for (int i = 0; i < distancesToSum; i++)
+                {
+                    occupant.noveltyScore += distanceIterator.Value.distance;
+                    distanceIterator = distanceIterator.Next;
+                }
+            }
+        }
+
+        //Expensive computation of distances for an experience already in buffer.
+        private void ComputeDistances(NoveltyBufferOccupant occupant)
+        {
+            if (noveltyBuffer.Count == 0)
+                return;
+
+            //Only need one less than the number of novelty buffer occupants.
+            List<DistanceDescription> distanceDescriptions = new List<DistanceDescription>(noveltyBuffer.Count - 1);
+
+            foreach (NoveltyBufferOccupant currentOccupant in noveltyBuffer)
+            {
+                //Don't include the least novel occupant.
+                if (currentOccupant != occupant)
+                {
+                    double distance = ExpDistance(occupant.experience, currentOccupant.experience);
+
+                    DistanceDescription newDescription = new DistanceDescription();
+                    newDescription.distance = distance;
+                    newDescription.distanceOwner = currentOccupant;
+
+                    distanceDescriptions.Add(newDescription);
+                }
+            }
+
+            distanceDescriptions.Sort();
+
+            //Reset distances.
+            occupant.distanceDescriptions.Clear();
+
+            //This method is only called when noveltyBuffer.Count > N_KEEP.
+            for (int i = 0; i < N_KEEP; i++)
+                occupant.distanceDescriptions.AddLast(distanceDescriptions[i]);
         }
 
         //Makes sure a type is INPUT, HIDDEN, or OUTPUT.
@@ -599,36 +739,88 @@ namespace Raahn
             return true;
         }
 
-        private double SampleDistance(List<double> sample, List<double> compare)
+        private double ExpDistance(List<double> exp, List<double> compare)
         {
             double sum = 0.0;
 
-            for (int i = 0; i < sample.Count; i++)
-                sum += Math.Pow(sample[i] - compare[i], 2.0);
+            for (int i = 0; i < exp.Count; i++)
+                sum += Math.Pow(exp[i] - compare[i], 2.0);
 
             return Math.Sqrt(sum);
         }
 
-        private double NoveltyScore(List<double> sample)
+        //Expensive computation of novelty score for a new experiences.
+        private List<DistanceDescription> ComputeNewDistances(NoveltyBufferOccupant occupant)
         {
-            double sum = 0.0;
+            if (noveltyBuffer.Count == 0)
+                return null;
 
-            List<double> distances = new List<double>(noveltyBuffer.Count - 1);
+            List<DistanceDescription> distanceDescriptions = null;
 
-            for (LinkedListNode<List<double>> it = noveltyBuffer.First; it != null; it = it.Next)
+            if (noveltyBuffer.Count < historyBufferSize)
             {
-                List<double> currentSample = it.Value;
+                distanceDescriptions = new List<DistanceDescription>(noveltyBuffer.Count);
 
-                if (sample != currentSample)
-                    distances.Add(SampleDistance(sample, currentSample));
+                foreach (NoveltyBufferOccupant currentOccupant in noveltyBuffer)
+                {
+                    double distance = ExpDistance(occupant.experience, currentOccupant.experience);
+
+                    DistanceDescription newDescription = new DistanceDescription();
+                    newDescription.distanceOwner = currentOccupant;
+                    newDescription.distance = distance;
+
+                    distanceDescriptions.Add(newDescription);
+                }
+            }
+            else
+            {
+                //Only need one less than the number of novelty buffer occupants.
+                distanceDescriptions = new List<DistanceDescription>(noveltyBuffer.Count - 1);
+
+                //Don't include the least novel occupant in the distance cache.
+                for (int i = 1; i < noveltyBuffer.Count; i++)
+                {
+                    NoveltyBufferOccupant currentOccupant = noveltyBuffer[i];
+
+                    double distance = ExpDistance(occupant.experience, currentOccupant.experience);
+
+                    DistanceDescription newDescription = new DistanceDescription();
+                    newDescription.distanceOwner = currentOccupant;
+                    newDescription.distance = distance;
+
+                    distanceDescriptions.Add(newDescription);
+                }
             }
 
-            distances.Sort();
+            //Copy the distances for sorting. The original list order is maintained 
+            //so its distances can easily be added to the other novelty buffer occupants.
+            List<DistanceDescription> sortedList = new List<DistanceDescription>(distanceDescriptions.Count);
 
-            for (int i = 0; i < N_NEAREST; i++)
-                sum += distances[i];
+            for (int i = 0; i < distanceDescriptions.Count; i++)
+                sortedList.Add(distanceDescriptions[i]);
 
-            return sum;
+            sortedList.Sort();
+
+            //Find out how many elements to keep in the occupant's distance caches.
+            int keepCount = sortedList.Count;
+            //Find out how many elements to use for the occupant's novelty score.
+            int nearestCount = sortedList.Count;
+
+            //keepCount should be at most N_KEEP.
+            if (keepCount > N_KEEP)
+                keepCount = (int)N_KEEP;
+
+            //nearestCount should be at most N_NEAREST.
+            if (nearestCount > N_NEAREST)
+                nearestCount = (int)N_NEAREST;
+
+            for (int i = 0; i < keepCount; i++)
+                occupant.distanceDescriptions.AddLast(sortedList[i]);
+
+            for (int i = 0; i < nearestCount; i++)
+                occupant.noveltyScore += sortedList[i].distance;
+
+            return distanceDescriptions;
         }
     }
 }

@@ -162,13 +162,6 @@ namespace Raahn
                 computed = true;
             }
 
-
-			public void SaveWeights()
-            {
-                for (int i = 0; i < outgoingGroups.Count; i++)
-                    outgoingGroups[i].SaveWeights();
-            }
-
             //Train groups which use the most recent experience.
             public double TrainRecent()
             {
@@ -209,8 +202,8 @@ namespace Raahn
                 {
                     if (ann.useNovelty)
                     {
-                        foreach (List<double> sample in ann.noveltyBuffer)
-                            samples.AddLast(sample);
+                        foreach (NoveltyBufferOccupant occupant in ann.noveltyBuffer)
+                            samples.AddLast(occupant.experience);
                     }
                     else
                     {
@@ -229,7 +222,7 @@ namespace Raahn
                         List<double> sample = samples.ElementAt(NeuralNetwork.rand.Next(samples.Count));
                         samples.Remove(sample);
 
-                        ann.SetSample(sample);
+                        ann.SetExperience(sample);
                         ann.PropagateSignal();
 
 						outTrainSeveral[i].UpdateAverages();
@@ -244,18 +237,6 @@ namespace Raahn
                 }
 
                 return error;
-            }
-
-            public void DisplayIncomingWeights()
-            {
-                for (int i = 0; i < incomingGroups.Count; i++)
-                    incomingGroups[i].DisplayWeights();
-            }
-
-            public void DisplayOutgoingWeights()
-            {
-                for (int i = 0; i < outgoingGroups.Count; i++)
-                    outgoingGroups[i].DisplayWeights();
             }
 
             public uint GetNeuronCount()

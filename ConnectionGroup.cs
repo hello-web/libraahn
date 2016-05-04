@@ -30,6 +30,7 @@ namespace Raahn
         public class ConnectionGroup
         {
             public const double DEFAULT_LEARNING_RATE = 0.1;
+            private const String WEIGHTS_FILE = "weights.txt";
 
             public delegate double TrainFunctionType(int modIndex, double learningRate, NeuralNetwork ann, 
 			                                         NeuronGroup inGroup, NeuronGroup outGroup, 
@@ -45,8 +46,6 @@ namespace Raahn
             private NeuronGroup inputGroup;
             private NeuronGroup outputGroup;
             private TrainFunctionType trainingMethod;
-            //Used for reseting weights.
-            private Random rand;
 
             public ConnectionGroup(NeuralNetwork network, NeuronGroup inGroup, NeuronGroup outGroup, bool useBias)
             {
@@ -68,8 +67,6 @@ namespace Raahn
                     biasWeights = new List<double>();
                 else
                     biasWeights = null;
-
-                rand = new Random();
             }
 
             public void AddConnection(uint inputIndex, uint outputIndex, double weight)
@@ -88,9 +85,7 @@ namespace Raahn
 				{
 					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
 					//Keep in the range of [-range, range]
-					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
-
-					biasWeights.Add(weight);
+                    biasWeights.Add((rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range);
 				}
             }
 
@@ -134,52 +129,6 @@ namespace Raahn
                 trainingMethod = method;
             }
 
-            public void DisplayWeights()
-            {
-                for (int i = 0; i < connections.Count; i++)
-                    Console.WriteLine(connections[i].weight);
-
-                if (biasWeights != null)
-                {
-                    for (int i = 0; i < biasWeights.Count; i++)
-                        Console.WriteLine(biasWeights[i]);
-                }
-            }
-
-			public void SaveWeights()
-            {
-                StreamWriter writer = new StreamWriter("weights.txt");
-
-                List<List<double>> weights = new List<List<double>>(inputGroup.neurons.Count);
-
-                for (int x = 0; x < inputGroup.neurons.Count; x++)
-                {
-                    List<double> newList = new List<double>(outputGroup.neurons.Count);
-
-                    for (int y = 0; y < outputGroup.neurons.Count; y++)
-                        newList.Add(0.0);
-
-                    weights.Add(newList);
-                }
-
-                for (int i = 0; i < connections.Count; i++)
-                    weights[(int)connections[i].input][(int)connections[i].output] = connections[i].weight;
-
-                for (int x = 0; x < inputGroup.neurons.Count; x++)
-                {
-                    for (int y = 0; y < outputGroup.neurons.Count; y++)
-                        writer.WriteLine(weights[x][y]);
-                }
-
-                if (biasWeights != null)
-                {
-                    for (int i = 0; i < biasWeights.Count; i++)
-                        writer.WriteLine(biasWeights[i]);
-                }
-
-				writer.Close();
-            }
-
             public void ResetWeights()
             {
 				double neuronInOutCount = (double)(inputGroup.neurons.Count + outputGroup.neurons.Count);
@@ -191,9 +140,7 @@ namespace Raahn
 				{
 					double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
 					//Keep in the range of [-range, range]
-					double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
-
-					connections[i].weight = weight;
+                    connections[i].weight = (NeuralNetwork.rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
 				}
 
                 if (biasWeights != null)
@@ -202,9 +149,7 @@ namespace Raahn
 					{
 						double range = Math.Sqrt(WEIGHT_RANGE_SCALE / neuronInOutCount);
 						//Keep in the range of [-range, range]
-						double weight = (rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
-
-						biasWeights[i] = weight;
+                        biasWeights[i] = (NeuralNetwork.rand.NextDouble() * range * DOUBLE_WEIGHT_RANGE) - range;
 					}
                 }
             }
